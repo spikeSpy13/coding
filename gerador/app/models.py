@@ -10,7 +10,10 @@ class GenerateRequest(BaseModel):
     api_key: SecretStr | None = Field(default=None, exclude=True)
     temperatura: float | None = Field(default=None, ge=0, le=2, allow_inf_nan=False)
     temperatura_suportada: bool | None = None
-    max_tokens: int = Field(default=800, ge=100, le=16000)
+    max_tokens: int = Field(default=4096, ge=100, le=16000)
+    recuperar_truncamento: bool = True
+    teto_tokens: int = Field(default=8192, ge=100, le=16000)
+    raciocinio: Literal['automatico', 'desativado', 'baixo', 'medio', 'alto'] = 'automatico'
     limiar_similaridade: float = Field(default=0.4, ge=0, le=1, allow_inf_nan=False)
     seed: int | None = None
     anti_repeticao: bool = True

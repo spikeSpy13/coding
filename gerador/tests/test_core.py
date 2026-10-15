@@ -110,3 +110,15 @@ def test_metrics(fixed):
     assert result['aberturas_unicas'] == 1
     assert result['comprimento']['media'] > 10
     assert result['contagem_parametros']['tom'] == {'neutro':2}
+
+
+def test_history_does_not_ban_theme_words(config,fixed):
+    prompt=build_prompt({**fixed,'tema':'morte'},config,history=['A morte atravessou a cidade durante a madrugada.'])
+    entry=__import__('json').loads(next(line for line in prompt.splitlines() if line.startswith('{')))
+    assert 'morte' not in entry['vocabulario']
+    assert 'não uma lista de palavras proibidas' in prompt
+
+
+def test_reasoning_leak_is_rejected(config):
+    errors=validate('We need to produce a single paragraph. '+VALID,'curto',config)
+    assert any('planejamento' in error for error in errors)

@@ -13,7 +13,7 @@ class Settings:
     db_path: str = str(ROOT / 'data' / 'gerador.db')
     api_key: str = ''
     model: str = ''
-    max_tokens: int = 800
+    max_tokens: int = 4096
     concurrency: int = 5
     similarity_threshold: float = 0.4
     async_threshold: int = 10
@@ -27,7 +27,7 @@ class Settings:
             db_path=os.getenv('DB_PATH', cls.db_path),
             api_key=os.getenv('OPENROUTER_API_KEY', ''),
             model=os.getenv('LLM_MODEL', ''),
-            max_tokens=int(os.getenv('MAX_TOKENS', '800')),
+            max_tokens=int(os.getenv('MAX_TOKENS', '4096')),
             concurrency=int(os.getenv('CONCORRENCIA_LOTE', '5')),
             similarity_threshold=float(os.getenv('LIMIAR_SIMILARIDADE', '0.4')),
             temperature_supported=None if temp is None else temp.lower() == 'true',

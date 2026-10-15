@@ -8,7 +8,7 @@ const config = {
   eixos: {tipo_texto: {nome:'Tipo de texto', camada:1, valores:['descricao']}, tamanho:{nome:'Tamanho',camada:2,valores:['curto']},ousadia:{nome:'Ousadia',camada:3,valores:['equilibrada'],padrao:'equilibrada'}},
   rotulos: {tipo_texto:{descricao:'Descrição'},tamanho:{curto:'Curto'},ousadia:{equilibrada:'Equilibrada'}},
   temperatura: {suportada:false,min:0,max:1,padrao:1,jitter_lote:0.15},
-  modelo:'', chave_configurada:false, padroes:{max_tokens:800,concorrencia:5,limiar_similaridade:0.4},
+  modelo:'', chave_configurada:false, padroes:{max_tokens:4096,concorrencia:5,limiar_similaridade:0.4},
 };
 const item = {id:1, texto:'O jardim floresce todas as manhãs. As crianças brincam perto da fonte.',
   parametros_finais:{tipo_texto:'descricao',tamanho:'curto',ousadia:'equilibrada',tema:'jardim'},
@@ -43,6 +43,20 @@ async function setupModel(user) {
 }
 
 describe('Interface real', () => {
+  it('sends configurable truncation recovery and reasoning settings',async () => {
+    const user=userEvent.setup();render(<Gerador80s/>);await setupModel(user);
+    await user.click(screen.getByText('Ajustes de geração'));
+    expect(screen.getByLabelText('Tokens por tentativa inicial').value).toBe('4096');
+    await user.selectOptions(screen.getByLabelText('Raciocínio do modelo'),'baixo');
+    fireEvent.change(screen.getByLabelText('Teto de tokens por tentativa'),{target:{value:'6144'}});
+    await user.click(screen.getByRole('button',{name:'Gerar',exact:true}));
+    await waitFor(()=>expect(requests.some(r=>r.path==='/gerar')).toBe(true));
+    const body=JSON.parse(requests.find(r=>r.path==='/gerar').options.body);
+    expect(body.max_tokens).toBe(4096);
+    expect(body.teto_tokens).toBe(6144);
+    expect(body.recuperar_truncamento).toBe(true);
+    expect(body.raciocinio).toBe('baixo');
+  });
   it('adds models, sends credentials only in the body, and regenerates fixed parameters',async () => {
     const user=userEvent.setup(); render(<Gerador80s/>);
     await setupModel(user);

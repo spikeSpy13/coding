@@ -23,6 +23,7 @@ class FakeClient:
     def __init__(self, texts=None, delay=0):
         self.texts = texts or TEXTS
         self.calls = []
+        self.budgets = []
         self.delay = delay
         self.active = 0
         self.peak = 0
@@ -30,6 +31,7 @@ class FakeClient:
     async def gerar(self, prompt, max_tokens, temperatura=None):
         index = len(self.calls)
         self.calls.append(prompt)
+        self.budgets.append(max_tokens)
         self.active += 1
         self.peak = max(self.peak,self.active)
         await asyncio.sleep(self.delay)
@@ -37,6 +39,8 @@ class FakeClient:
         value = self.texts[index % len(self.texts)]
         if isinstance(value, Exception):
             raise value
+        if isinstance(value, LLMResult):
+            return value
         return LLMResult(value, 'provider/test', 'stop', 15, 12, temperatura)
 
 
@@ -177,3 +181,57 @@ def test_restart_marks_unfinished_batches(tmp_path):
     batch_id=storage.create_batch(10,{'parametros':{}})
     with TestClient(create_app(Settings(db_path=str(path)))) as client:
         assert client.get('/lotes/'+batch_id).json()['status']=='interrompido'
+
+
+def test_truncation_retries_with_increased_budget_and_exports_diagnostics(api,fixed):
+    client,fake,_=api
+    fake.texts=[LLMResult('A cidade acordou enquanto', 'provider/test', 'length', 20, 800, reasoning_tokens=750),TEXTS[0]]
+    data=client.post('/gerar',json=payload(fixed,max_tokens=800,teto_tokens=1600)).json()
+    assert data['status']=='ok' and fake.budgets==[800,1600]
+    assert data['tentativas'][0]['finish_reason']=='length'
+    assert data['tentativas'][0]['tokens_raciocinio']==750
+    assert data['tentativas'][1]['max_tokens']==1600
+    assert '800 para 1600' in str(data['avisos'])
+    assert 'tokens_raciocinio' in client.get('/exportar').text
+
+
+@pytest.mark.parametrize('recover,ceiling', [(False,1600),(True,800)])
+def test_exhausted_budget_not_repeated(api,fixed,recover,ceiling):
+    client,fake,_=api
+    fake.texts=[LLMResult('A cidade', 'provider/test', 'length', 20, 800)]
+    data=client.post('/gerar',json=payload(fixed,max_tokens=800,teto_tokens=ceiling,recuperar_truncamento=recover)).json()
+    assert data['status']=='falhou' and fake.budgets==[800]
+    assert 'Aumente os tokens' in data['motivo_falha']
+
+
+def test_empty_reasoning_only_result_can_recover(api,fixed):
+    client,fake,_=api
+    fake.texts=[LLMResult('', 'provider/test','length',20,800,reasoning_tokens=800,reasoning_present=True),TEXTS[0]]
+    data=client.post('/gerar',json=payload(fixed,max_tokens=800)).json()
+    assert data['status']=='ok' and fake.budgets==[800,1600]
+    assert data['tokens_saida']==812
+
+
+def test_partial_text_and_matching_prompt_survive_later_provider_error(api,fixed):
+    client,fake,_=api
+    fake.texts=[LLMResult('A cidade acordou enquanto', 'provider/test','length',20,800),LLMError('Provedor indisponível.')]
+    data=client.post('/gerar',json=payload(fixed,max_tokens=800)).json()
+    assert data['status']=='falhou'
+    assert data['texto']=='A cidade acordou enquanto'
+    assert data['prompt']==data['tentativas'][0]['prompt']
+    assert data['tentativas'][1]['tipo']=='provedor'
+    assert data['tokens_saida']==800 and data['avisos']
+
+
+def test_provider_refusal_is_not_retried(api,fixed):
+    client,fake,_=api
+    fake.texts=[LLMResult('', 'provider/test', 'content_filter',10,0)]
+    data=client.post('/gerar',json=payload(fixed)).json()
+    assert data['status']=='falhou' and len(fake.calls)==1
+
+
+def test_default_token_budget(api,fixed):
+    client,fake,_=api
+    assert client.get('/parametros').json()['padroes']['max_tokens']==4096
+    client.post('/gerar',json=payload(fixed))
+    assert fake.budgets==[4096]

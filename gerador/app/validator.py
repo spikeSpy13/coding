@@ -15,8 +15,14 @@ def sentence_count(text):
 def validate(text: str, size: str, config: dict, finish_reason: str | None = None) -> list[str]:
     errors = []
     stripped = text.strip()
+    if finish_reason in ('content_filter', 'refusal'):
+        return ['O provedor recusou ou filtrou a resposta. Ajuste o pedido ou escolha outro modelo.']
     if not stripped:
-        return ['Texto vazio.']
+        return ['O modelo não entregou texto final.' + (' O limite de tokens foi atingido.' if finish_reason in ('length', 'max_tokens') else '')]
+    if re.search(r'</?think>|<\|(?:analysis|thinking)\|>', stripped, re.I) or re.match(
+        r"^(?:we need to (?:produce|write|generate|create)|let['’]s (?:think|reason|craft)|(?:analysis|reasoning|racioc[íi]nio|an[áa]lise)\s*:)", stripped, re.I
+    ):
+        errors.append('O conteúdo contém planejamento ou análise; entregue somente o parágrafo final.')
     if '\n' in stripped or '\r' in stripped:
         errors.append('Use apenas um parágrafo sem título ou quebras de linha.')
     if re.match(r'^(?:#{1,6}\s|[-*•]\s|\d+[.)]\s|aqui (?:está|esta|vai)|t[íi]tulo\s*:|par[áa]grafo\s*:)', stripped, re.I):

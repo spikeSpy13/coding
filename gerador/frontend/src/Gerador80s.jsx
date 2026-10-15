@@ -15,7 +15,8 @@ function Item({ item, index, config, busy, onRegenerate, onApprove }) {
     catch { setCopyError(true); }
   }
   return <article className="g80-item">
-    <p className="g80-n">FAIXA {String(index + 1).padStart(2, '0')} · {item.status === 'ok' ? 'VALIDADA' : 'FALHOU'}</p>
+    <p className="g80-n">FAIXA {String(index + 1).padStart(2, '0')} · {item.status === 'ok' ? 'FORMATO VERIFICADO' : 'FALHOU'}</p>
+    {item.status === 'ok' && <small>A verificação automática não substitui a revisão da escrita.</small>}
     <p className="g80-texto">{item.texto || 'Nenhum texto retornado.'}</p>
     {item.motivo_falha && <p className="g80-erro">{item.motivo_falha}</p>}
     <ul className="g80-chips" aria-label="Parâmetros usados">
@@ -33,6 +34,12 @@ function Item({ item, index, config, busy, onRegenerate, onApprove }) {
       <p>Modelo: {item.modelo} · Temperatura: {item.temperatura ?? 'omitida'} · Tokens: {item.tokens_entrada ?? '—'} / {item.tokens_saida ?? '—'}</p>
       <pre>{item.prompt}</pre>
       <p>{item.tentativas?.length || 1} tentativa(s) · {new Date(item.criado_em).toLocaleString('pt-BR')}</p>
+      {item.tentativas?.map((attempt, i) => <details key={i}><summary>Tentativa {i + 1} · {attempt.finish_reason || attempt.tipo || 'sem diagnóstico antigo'}</summary>
+        <p>Orçamento: {attempt.max_tokens ?? 'não registrado'} · Saída: {attempt.tokens_saida ?? 'não informada'} · Raciocínio: {attempt.tokens_raciocinio ?? 'não informado'}</p>
+        {attempt.motivos?.map((reason, j) => <p className="g80-aviso" key={j}>{reason}</p>)}
+        <pre>{attempt.texto || 'Sem texto final.'}</pre>
+        {attempt.diagnostico && <pre>{JSON.stringify(attempt.diagnostico, null, 2)}</pre>}
+      </details>)}
     </details>
   </article>;
 }
@@ -55,7 +62,10 @@ export default function Gerador80s() {
   const [nHistory, setNHistory] = useState(10);
   const [jitter, setJitter] = useState(false);
   const [seed, setSeed] = useState('');
-  const [maxTokens, setMaxTokens] = useState(800);
+  const [maxTokens, setMaxTokens] = useState(4096);
+  const [recoverTruncation, setRecoverTruncation] = useState(true);
+  const [tokenCeiling, setTokenCeiling] = useState(8192);
+  const [reasoning, setReasoning] = useState('automatico');
   const [concurrency, setConcurrency] = useState(5);
   const [threshold, setThreshold] = useState(0.4);
   const [items, setItems] = useState([]);
@@ -141,6 +151,7 @@ export default function Gerador80s() {
       seed: seed === '' ? null : Number(seed),
       anti_repeticao: anti, n_historico: nHistory, modo_sorteio: mode,
       max_tokens: maxTokens, limiar_similaridade: threshold, sessao_id: session.current,
+      recuperar_truncamento: recoverTruncation, teto_tokens: Math.max(maxTokens, tokenCeiling), raciocinio: reasoning,
     };
   }
 
@@ -272,7 +283,10 @@ export default function Gerador80s() {
             {batchMode && <div className="g80-campo g80-campo--largo g80-inline"><label htmlFor="p-n">Parágrafos no lote</label><input id="p-n" type="number" min="1" max="100" value={n} disabled={busy} onChange={e => setN(Number(e.target.value))}/>{supports && <label className="g80-check"><input type="checkbox" checked={jitter} disabled={busy} onChange={e => setJitter(e.target.checked)}/>Variar temperatura por item</label>}</div>}
           </div>
           <details className="g80-details"><summary>Ajustes de geração</summary><div className="g80-campos">
-            <div className="g80-campo"><label htmlFor="p-tokens">Máximo de tokens</label><input id="p-tokens" type="number" min="100" max="16000" value={maxTokens} disabled={busy} onChange={e => setMaxTokens(Number(e.target.value))}/></div>
+            <div className="g80-campo"><label htmlFor="p-tokens">Tokens por tentativa inicial</label><input id="p-tokens" type="number" min="100" max="16000" value={maxTokens} disabled={busy} onChange={e => setMaxTokens(Number(e.target.value))}/><small>Em alguns modelos, inclui raciocínio e texto final.</small></div>
+            <div className="g80-campo"><label htmlFor="p-reasoning">Raciocínio do modelo</label><select id="p-reasoning" value={reasoning} disabled={busy} onChange={e => setReasoning(e.target.value)}><option value="automatico">Padrão do provedor</option><option value="desativado">Desativado, se permitido</option><option value="baixo">Baixo</option><option value="medio">Médio</option><option value="alto">Alto</option></select><small>Modelos podem ignorar ou rejeitar este ajuste.</small></div>
+            <div className="g80-campo g80-campo--largo"><label className="g80-check"><input type="checkbox" checked={recoverTruncation} disabled={busy} onChange={e => setRecoverTruncation(e.target.checked)}/>Aumentar tokens se a resposta for cortada</label><small>Até três tentativas no total. Aumentar o orçamento pode aumentar o custo.</small></div>
+            {recoverTruncation && <div className="g80-campo"><label htmlFor="p-ceiling">Teto de tokens por tentativa</label><input id="p-ceiling" type="number" min={maxTokens} max="16000" value={Math.max(maxTokens,tokenCeiling)} disabled={busy} onChange={e => setTokenCeiling(Number(e.target.value))}/></div>}
             <div className="g80-campo"><label htmlFor="p-sim">Limiar de similaridade</label><input id="p-sim" type="number" min="0" max="1" step="0.05" value={threshold} disabled={busy} onChange={e => setThreshold(Number(e.target.value))}/></div>
             {batchMode && <div className="g80-campo"><label htmlFor="p-con">Chamadas simultâneas</label><input id="p-con" type="number" min="1" max="20" value={concurrency} disabled={busy || anti} onChange={e => setConcurrency(Number(e.target.value))}/><small>{anti ? 'Anti-repetição usa geração sequencial.' : 'A deduplicação continua ativa no lote.'}</small></div>}
           </div></details>

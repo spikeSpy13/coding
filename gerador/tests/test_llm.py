@@ -70,3 +70,57 @@ def test_bad_request_not_sampling_is_not_retried():
     with pytest.raises(LLMError) as error:
         asyncio.run(client.gerar('Escreva.',400,0.5))
     assert len(calls)==1 and 'secret-key' not in str(error.value)
+
+
+def test_empty_content_preserves_reasoning_usage_without_exposing_reasoning():
+    body={'choices':[{'message':{'content':None,'reasoning':'private reasoning text'},'finish_reason':'length'}],
+          'usage':{'prompt_tokens':20,'completion_tokens':800,'completion_tokens_details':{'reasoning_tokens':796}}}
+    client=OpenRouterClient('test-key','provider/test',transport=httpx.MockTransport(lambda r:httpx.Response(200,json=body)))
+    result=asyncio.run(client.gerar('Escreva.',800))
+    assert result.text=='' and result.finish_reason=='length'
+    assert result.output_tokens==800 and result.reasoning_tokens==796 and result.reasoning_present
+    assert 'private reasoning' not in str(result)
+
+
+@pytest.mark.parametrize('mode,expected', [('desativado',{'enabled':False,'exclude':True}),('baixo',{'effort':'low','exclude':True})])
+def test_optional_reasoning_controls(mode,expected):
+    def handler(request):
+        assert json.loads(request.content)['reasoning']==expected
+        return ok()
+    client=OpenRouterClient('test-key','provider/test',transport=httpx.MockTransport(handler),reasoning=mode)
+    asyncio.run(client.gerar('Escreva.',4096))
+
+
+def test_reasoning_fallback():
+    bodies=[]
+    def handler(request):
+        bodies.append(json.loads(request.content))
+        return httpx.Response(400,json={'error':{'message':'reasoning unsupported'}}) if len(bodies)==1 else ok()
+    client=OpenRouterClient('test-key','provider/test',transport=httpx.MockTransport(handler),reasoning='baixo')
+    result=asyncio.run(client.gerar('Escreva.',4096))
+    assert 'reasoning' in bodies[0] and 'reasoning' not in bodies[1]
+    assert result.warnings and len(result.diagnostics['chamadas'])==2
+
+
+def test_automatic_reasoning_does_not_send_override():
+    def handler(request):
+        assert 'reasoning' not in json.loads(request.content)
+        return ok()
+    client=OpenRouterClient('test-key','provider/test',transport=httpx.MockTransport(handler))
+    asyncio.run(client.gerar('Escreva.',4096))
+
+
+def test_embedded_provider_error_retried_and_diagnosed_without_raw_body():
+    client=OpenRouterClient('secret-key','provider/test',transport=httpx.MockTransport(
+        lambda r:httpx.Response(200,json={'error':{'code':429,'message':'Bearer secret-key'}})),sleep=no_sleep)
+    with pytest.raises(LLMError) as error:
+        asyncio.run(client.gerar('Escreva.',4096))
+    assert len(error.value.diagnostics['chamadas'])==3
+    assert error.value.diagnostics['chamadas'][0]['codigo_provedor']==429
+    assert 'secret-key' not in str(error.value)+str(error.value.diagnostics)
+
+
+def test_text_blocks_are_read_but_reasoning_blocks_are_not():
+    body={'choices':[{'message':{'content':[{'type':'reasoning','text':'Not output'}, {'type':'text','text':'Texto final.'}]},'finish_reason':'stop'}]}
+    client=OpenRouterClient('key','provider/test',transport=httpx.MockTransport(lambda r:httpx.Response(200,json=body)))
+    assert asyncio.run(client.gerar('Escreva.',4096)).text=='Texto final.'

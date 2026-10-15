@@ -31,6 +31,18 @@ Para desenvolver a interface com atualização automática, mantenha o backend n
 5. Escolha valores fixos, aleatórios ou, no lote, **variar**. Ajuste tema, ousadia, semente, anti-repetição e quantidade de itens. Em **Ajustes de geração**, também é possível mudar máximo de tokens, limiar de similaridade e concorrência.
 6. Gere, copie, regenere com os mesmos parâmetros e modelo, ou aprove/reprove resultados. O histórico permanece no SQLite e pode ser filtrado por lote e exportado em CSV/JSONL.
 
+### Respostas cortadas e modelos com raciocínio
+
+O orçamento inicial padrão é **4096 tokens**. Alguns modelos gastam parte desse orçamento em raciocínio, deixando menos espaço para o parágrafo. Em **Ajustes de geração**, é possível configurar:
+
+- **Tokens por tentativa inicial** e **Teto de tokens por tentativa** (padrão 8192). Com recuperação ligada, uma resposta que atingiu o limite gera uma nova tentativa com orçamento dobrado, respeitando o teto e o máximo de três tentativas. O teto efetivo nunca é menor que o orçamento inicial. O texto é gerado novamente, não concatenado ao trecho incompleto. Aumentar o orçamento pode aumentar o custo.
+- **Aumentar tokens se a resposta for cortada**: pode ser desligado. Sem recuperação, ou quando o teto é atingido, o sistema informa como ajustar o limite em vez de gastar novas chamadas com o mesmo orçamento esgotado.
+- **Raciocínio do modelo**: padrão do provedor (sem override), desativado, baixo, médio ou alto. Modelos podem não permitir controlar ou desativar raciocínio. Se o provedor rejeitar o campo com erro 400 específico, há uma tentativa sem ele, registrada como aviso. Esses controles não garantem que o modelo consiga escrever com qualquer orçamento.
+
+O painel **Prompt e metadados** mostra cada tentativa, motivo de término, orçamento, consumo de tokens e tokens de raciocínio quando informados pelo provedor. O conteúdo dos campos separados de raciocínio não é usado como parágrafo nem salvo. Erros guardam códigos e contagens, sem copiar mensagens brutas que possam conter credenciais. Erros transitórios dentro de respostas HTTP 200 também são reconhecidos.
+
+Se uma nova chamada falhar no provedor após uma resposta parcial, o trecho anterior e seu prompt são preservados. Histórico antigo continua legível; informações não registradas na época aparecem como indisponíveis. A opção **Formato verificado** significa validação automática estrutural, não aprovação gramatical ou editorial. A anti-repetição varia aberturas e imagens sem transformar palavras necessárias ao tema em termos proibidos.
+
 Nenhuma chave ou modelo precisa ser configurado no ambiente da nuvem. Opcionalmente, `gerador/.env` pode definir padrões do servidor conforme `.env.example`; `OPENROUTER_API_KEY` é usada apenas quando não há chave na requisição. Não copie chaves para o código. A conexão HTTPS do backend precisa alcançar `openrouter.ai`; instalar dependências usa os registries Python e npm.
 
 ## Diversidade e limites
@@ -59,7 +71,7 @@ Nenhuma chave ou modelo precisa ser configurado no ambiente da nuvem. Opcionalme
 | `GET /exportar?formato=csv\|jsonl&lote_id=…` | Exportação completa, incluindo prompts e tentativas |
 | `GET /saude` | Estado da aplicação e acesso ao SQLite |
 
-O corpo de `/gerar` aceita `parametros`, `modelo`, `api_key`, `temperatura_suportada`, `temperatura`, `seed`, `anti_repeticao`, `n_historico`, `modo_sorteio`, `sessao_id`, `max_tokens` e `limiar_similaridade`. O lote acrescenta `n`, `estrategias`, `jitter`, `concorrencia` e `assincrono`. `tema` pertence ao objeto `parametros`. `api_key` é excluída da serialização de histórico. O OpenAPI em `/docs` descreve os limites e tipos.
+O corpo de `/gerar` aceita `parametros`, `modelo`, `api_key`, `temperatura_suportada`, `temperatura`, `seed`, `anti_repeticao`, `n_historico`, `modo_sorteio`, `sessao_id`, `max_tokens`, `recuperar_truncamento`, `teto_tokens`, `raciocinio` e `limiar_similaridade`. O lote acrescenta `n`, `estrategias`, `jitter`, `concorrencia` e `assincrono`. `tema` pertence ao objeto `parametros`. `api_key` é excluída da serialização de histórico. O OpenAPI em `/docs` descreve os limites e tipos.
 
 ## Testes
 
