@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { call, storedModels, saveModels } from './api.js';
+import { call, storedModels, saveModels, storedApiKey, saveApiKey, forgetApiKey, storedSelectedModel, saveSelectedModel } from './api.js';
 import './gerador80s.css';
 import './app.css';
 
@@ -48,7 +48,8 @@ export default function Gerador80s() {
   const [config, setConfig] = useState(null);
   const [models, setModels] = useState(storedModels);
   const [model, setModel] = useState('');
-  const [apiKey, setApiKey] = useState('');
+  const [savedApiKey, setSavedApiKey] = useState(storedApiKey);
+  const [apiKey, setApiKey] = useState(savedApiKey);
   const [newModel, setNewModel] = useState('');
   const [newSupports, setNewSupports] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -91,9 +92,13 @@ export default function Gerador80s() {
       setValues(Object.fromEntries(Object.entries(data.eixos).map(([key, axis]) => [key, axis.padrao || 'aleatorio'])));
       setMaxTokens(data.padroes.max_tokens); setConcurrency(data.padroes.concorrencia); setThreshold(data.padroes.limiar_similaridade);
       const known = storedModels();
-      if (data.modelo && !known.some(m => m.id === data.modelo)) known.push({id: data.modelo, temperature: data.temperatura.suportada});
+      if (data.modelo && !known.some(m => m.id === data.modelo)) {
+        known.push({id: data.modelo, temperature: data.temperatura.suportada});
+        try { saveModels(known); } catch { setError('Não foi possível salvar a lista de modelos neste navegador.'); }
+      }
       setModels(known);
-      if (known.length) selectModel(known[0].id, known);
+      const selected = storedSelectedModel();
+      if (known.length) selectModel(known.some(m => m.id === selected) ? selected : known[0].id, known);
       refreshHistory();
       const pending = sessionStorage.getItem('gerador-lote-ativo');
       if (pending) {
@@ -106,6 +111,7 @@ export default function Gerador80s() {
 
   async function selectModel(id, list = models) {
     setModel(id);
+    try { saveSelectedModel(id); } catch { setError('Não foi possível salvar o modelo selecionado neste navegador.'); }
     const version = ++modelVersion.current;
     const support = list.find(m => m.id === id)?.temperature ?? false;
     setSupports(support);
@@ -136,7 +142,27 @@ export default function Gerador80s() {
     setSupports(value);
     const updated = models.map(m => m.id === model ? {...m, temperature: value} : m);
     setModels(updated);
-    try { saveModels(updated); } catch { /* The selection still works in memory. */ }
+    try { saveModels(updated); } catch { setError('Não foi possível salvar o ajuste de temperatura deste modelo.'); }
+  }
+
+  function saveKey() {
+    const key = apiKey.trim();
+    if (!key) return;
+    try {
+      saveApiKey(key);
+      setApiKey(key);
+      setSavedApiKey(key);
+      setError('');
+    } catch { setError('O navegador não permitiu salvar a chave. Ela pode ser usada nesta sessão; tente permitir o armazenamento local.'); }
+  }
+
+  function forgetKey() {
+    try {
+      forgetApiKey();
+      setApiKey('');
+      setSavedApiKey('');
+      setError('');
+    } catch { setError('Não foi possível apagar a chave salva. Remova os dados deste site nas configurações do navegador.'); }
   }
 
   function body(mode = 'parcial', item = null) {
@@ -249,13 +275,14 @@ export default function Gerador80s() {
     </header>
     <section className="g80-conexao g80-painel" aria-label="Configuração OpenRouter">
       <div className="g80-campo"><label htmlFor="api-key">Chave OpenRouter</label>
-        <div className="g80-model-row"><input id="api-key" type="password" autoComplete="off" spellCheck="false" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={config.chave_configurada ? 'Chave do servidor disponível' : 'Cole sua chave aqui'} disabled={busy}/><button className="g80-mini" disabled={busy || !apiKey} onClick={() => setApiKey('')}>Limpar</button></div>
-        <small>A chave fica apenas nesta página enquanto ela estiver aberta.</small>
+        <input id="api-key" type="password" autoComplete="off" spellCheck="false" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={config.chave_configurada ? 'Chave do servidor disponível' : 'Cole sua chave aqui'} disabled={busy}/>
+        <div className="g80-mini-acoes"><button className="g80-mini" disabled={busy || !apiKey.trim() || apiKey.trim() === savedApiKey} onClick={saveKey}>Salvar chave</button><button className="g80-mini" disabled={busy || (!apiKey && !savedApiKey)} onClick={forgetKey}>Apagar chave salva</button></div>
+        <small role="status">{savedApiKey && apiKey.trim() === savedApiKey ? 'Chave salva neste navegador. Ela estará disponível ao reabrir a página.' : savedApiKey ? 'Alteração ainda não salva. Clique em Salvar chave para substituir a anterior.' : 'Clique em Salvar chave para mantê-la neste navegador após fechar a página.'}</small>
       </div>
       <div className="g80-campo"><label htmlFor="model">Modelo OpenRouter</label><div className="g80-model-row">
         <select id="model" value={model} disabled={busy} onChange={e => selectModel(e.target.value)}><option value="">Escolha um modelo</option>{models.map(m => <option key={m.id} value={m.id}>{m.id}</option>)}</select>
         <button className="g80-btn g80-plus" aria-label="Adicionar modelo" disabled={busy} onClick={() => setAdding(!adding)}>+</button>
-      </div><small>Adicione o identificador provedor/modelo pelo botão +.</small></div>
+      </div><small>A lista e o último modelo selecionado são salvos automaticamente neste navegador.</small></div>
       {adding && <form className="g80-add-model" onSubmit={addModel}>
         <label htmlFor="new-model">Identificador do modelo</label><input id="new-model" autoFocus value={newModel} onChange={e => setNewModel(e.target.value)} placeholder="provedor/modelo" maxLength={200} required/>
         <label className="g80-check"><input type="checkbox" checked={newSupports} onChange={e => setNewSupports(e.target.checked)}/>Este modelo aceita temperatura</label>

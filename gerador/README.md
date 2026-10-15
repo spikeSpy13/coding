@@ -25,8 +25,8 @@ Para desenvolver a interface com atualização automática, mantenha o backend n
 ## Tudo configurado na página
 
 1. Cole a **chave da conta OpenRouter** no campo de chave. Ela não é específica de um modelo. Disponibilidade, preço e saldo dependem da conta e do modelo escolhido.
-2. Clique no **+** ao lado do seletor e informe o identificador `provedor/modelo`. O modelo entra no seletor. A lista de modelos e a opção de temperatura ficam no armazenamento local do navegador.
-3. A chave permanece somente na memória da página, é enviada no corpo JSON das chamadas e não é gravada no banco, no navegador ou na URL. Recarregar a página apaga a chave. O botão **Limpar** a remove da página; chamadas já iniciadas continuam com a chave recebida.
+2. Clique no **+** ao lado do seletor e informe o identificador `provedor/modelo`. A lista, a opção de temperatura e o último modelo selecionado são salvos automaticamente e restaurados ao reabrir a página.
+3. Clique em **Salvar chave** para mantê-la no armazenamento local deste navegador. Ao fechar e reabrir a página, o campo de senha será preenchido novamente. **Apagar chave salva** remove a chave do navegador e do campo, sem apagar os modelos. Editar o campo só substitui a chave persistida quando você clicar novamente em **Salvar chave**. A chave salva fica acessível ao perfil do navegador; ela é enviada ao backend no corpo JSON das chamadas, nunca na URL, e não entra no banco, no histórico ou nas exportações. Chamadas já iniciadas continuam com a chave recebida.
 4. Habilite **temperatura** somente para modelos que a aceitem. O controle aparece como régua, com valor numérico. O padrão é omitir `temperature`, `top_p` e `top_k`. Em um erro 400 de amostragem, a chamada é repetida uma vez sem temperatura e o resultado registra o aviso.
 5. Escolha valores fixos, aleatórios ou, no lote, **variar**. Ajuste tema, ousadia, semente, anti-repetição e quantidade de itens. Em **Ajustes de geração**, também é possível mudar máximo de tokens, limiar de similaridade e concorrência.
 6. Gere, copie, regenere com os mesmos parâmetros e modelo, ou aprove/reprove resultados. O histórico permanece no SQLite e pode ser filtrado por lote e exportado em CSV/JSONL.
@@ -44,6 +44,8 @@ O painel **Prompt e metadados** mostra cada tentativa, motivo de término, orça
 Se uma nova chamada falhar no provedor após uma resposta parcial, o trecho anterior e seu prompt são preservados. Histórico antigo continua legível; informações não registradas na época aparecem como indisponíveis. A opção **Formato verificado** significa validação automática estrutural, não aprovação gramatical ou editorial. A anti-repetição varia aberturas e imagens sem transformar palavras necessárias ao tema em termos proibidos.
 
 Nenhuma chave ou modelo precisa ser configurado no ambiente da nuvem. Opcionalmente, `gerador/.env` pode definir padrões do servidor conforme `.env.example`; `OPENROUTER_API_KEY` é usada apenas quando não há chave na requisição. Não copie chaves para o código. A conexão HTTPS do backend precisa alcançar `openrouter.ai`; instalar dependências usa os registries Python e npm.
+
+Use o mesmo navegador, perfil e endereço ao voltar. O armazenamento é separado por endereço e porta: abrir por `localhost` e por `127.0.0.1`, ou mudar de porta, usa espaços diferentes. Limpar dados do site remove as configurações; janelas privadas normalmente não as preservam após fechar. Se o navegador impedir uma gravação, a página informa a falha.
 
 ## Diversidade e limites
 

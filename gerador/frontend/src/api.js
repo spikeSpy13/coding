@@ -15,10 +15,32 @@ export async function call(path, body, method = body === undefined ? 'GET' : 'PO
 export function storedModels() {
   try {
     const models = JSON.parse(localStorage.getItem('gerador-modelos') || '[]');
-    return Array.isArray(models) ? models.filter(m => typeof m.id === 'string' && m.id.length <= 200 && !/\s/.test(m.id) && m.id.includes('/') && !m.id.startsWith('sk-')).slice(0, 100).map(m => ({id: m.id, temperature: m.temperature === true})) : [];
+    return Array.isArray(models) ? models.filter(m => m && typeof m.id === 'string' && m.id.length <= 200 && !/\s/.test(m.id) && m.id.includes('/') && !m.id.startsWith('sk-')).slice(0, 100).map(m => ({id: m.id, temperature: m.temperature === true})) : [];
   } catch { return []; }
 }
 
 export function saveModels(models) {
   localStorage.setItem('gerador-modelos', JSON.stringify(models.map(({ id, temperature }) => ({ id, temperature }))));
+}
+
+export function storedApiKey() {
+  try { return localStorage.getItem('gerador-openrouter-key') || ''; }
+  catch { return ''; }
+}
+
+export function saveApiKey(key) {
+  localStorage.setItem('gerador-openrouter-key', key.trim());
+}
+
+export function forgetApiKey() {
+  localStorage.removeItem('gerador-openrouter-key');
+}
+
+export function storedSelectedModel() {
+  try { return localStorage.getItem('gerador-modelo-selecionado') || ''; }
+  catch { return ''; }
+}
+
+export function saveSelectedModel(model) {
+  localStorage.setItem('gerador-modelo-selecionado', model);
 }

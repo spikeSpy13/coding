@@ -31,7 +31,7 @@ beforeEach(() => {
     return {ok:true,json:async()=>data};
   }));
 });
-afterEach(() => {cleanup();vi.unstubAllGlobals();});
+afterEach(() => {cleanup();vi.restoreAllMocks();vi.unstubAllGlobals();});
 
 async function setupModel(user) {
   await screen.findByLabelText('Chave OpenRouter');
@@ -88,7 +88,7 @@ describe('Interface real', () => {
     expect(body.temperatura_suportada).toBe(true);
   });
 
-  it('keeps model list but forgets the key when the page remounts',async () => {
+  it('keeps model list but does not persist an unsaved key',async () => {
     const user=userEvent.setup(); const first=render(<Gerador80s/>);await setupModel(user);
     first.unmount();render(<Gerador80s/>);
     await screen.findByLabelText('Chave OpenRouter');
@@ -97,6 +97,47 @@ describe('Interface real', () => {
     await user.click(screen.getByRole('button',{name:'Gerar',exact:true}));
     expect(await screen.findByRole('alert')).toBeTruthy();
     expect(requests.some(r=>r.path==='/gerar')).toBe(false);
+  });
+
+  it('restores the saved key, all models, last selection, and temperature capability',async () => {
+    const user=userEvent.setup();const first=render(<Gerador80s/>);await setupModel(user);
+    await user.click(screen.getByRole('button',{name:'Salvar chave',exact:true}));
+    await user.click(screen.getByRole('button',{name:'Adicionar modelo',exact:true}));
+    await user.type(screen.getByLabelText('Identificador do modelo'),'another/model');
+    await user.click(screen.getByLabelText('Este modelo aceita temperatura'));
+    await user.click(screen.getByRole('button',{name:'Adicionar ao seletor',exact:true}));
+    first.unmount();render(<Gerador80s/>);
+    await screen.findByLabelText('Chave OpenRouter');
+    expect(screen.getByLabelText('Chave OpenRouter').value).toBe('private-key-test');
+    await waitFor(()=>expect(screen.getByLabelText('Modelo OpenRouter').value).toBe('another/model'));
+    expect(screen.getByRole('option',{name:'provider/test'})).toBeTruthy();
+    expect(screen.getByRole('option',{name:'another/model'})).toBeTruthy();
+    expect(screen.getByRole('slider',{name:'Temperatura'})).toBeTruthy();
+    expect(screen.getByText('Chave salva neste navegador. Ela estará disponível ao reabrir a página.')).toBeTruthy();
+    expect(requests.every(r=>!r.path.includes('private-key-test'))).toBe(true);
+  });
+
+  it('removes the saved key without deleting models',async () => {
+    const user=userEvent.setup();const first=render(<Gerador80s/>);await setupModel(user);
+    await user.click(screen.getByRole('button',{name:'Salvar chave',exact:true}));
+    await user.click(screen.getByRole('button',{name:'Apagar chave salva',exact:true}));
+    first.unmount();render(<Gerador80s/>);
+    await screen.findByLabelText('Chave OpenRouter');
+    expect(screen.getByLabelText('Chave OpenRouter').value).toBe('');
+    expect(localStorage.getItem('gerador-openrouter-key')).toBeNull();
+    expect(screen.getByRole('option',{name:'provider/test'})).toBeTruthy();
+  });
+
+  it('reports failed persistence instead of claiming the key was saved',async () => {
+    const user=userEvent.setup();render(<Gerador80s/>);await setupModel(user);
+    const original=Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype,'setItem').mockImplementation(function(key,value) {
+      if(key==='gerador-openrouter-key') throw new DOMException('Quota exceeded','QuotaExceededError');
+      return original.call(this,key,value);
+    });
+    await user.click(screen.getByRole('button',{name:'Salvar chave',exact:true}));
+    expect((await screen.findByRole('alert')).textContent).toContain('não permitiu salvar a chave');
+    expect(screen.queryByText('Chave salva neste navegador. Ela estará disponível ao reabrir a página.')).toBeNull();
   });
 
   it('polls batch completion and offers vary only in batch mode',async () => {
