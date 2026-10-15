@@ -1,5 +1,7 @@
 # Python Studio
 
+O repositório também contém o **[Gerador de Parágrafos](gerador/README.md)**: aplicação FastAPI + React com OpenRouter, controles na própria página, lotes, histórico e exportação. Consulte esse guia para instalar e iniciar o gerador na porta 8001.
+
 Workspace para gerar código com OpenRouter, editar Python e executar com saída no terminal integrado. Interface em português, responsiva, com modelos personalizados e download de `main.py`.
 
 ## Iniciar

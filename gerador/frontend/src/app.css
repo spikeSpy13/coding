@@ -1,0 +1,29 @@
+body { margin: 0; }
+.g80 { min-height: 100vh; }
+.g80-conexao { max-width:1180px; margin:0 auto 24px; padding:20px; display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+.g80-model-row { display:flex; align-items:stretch; gap:8px; }
+.g80-model-row select,.g80-model-row input { flex:1; min-width:0; }
+.g80-plus { padding:3px 16px; font-size:24px; }
+.g80 input[type=password],.g80-add-model input { width:100%; min-width:0; font:inherit; padding:.6rem .7rem; color:var(--ink); background:var(--field); border:1px solid var(--line); }
+.g80 small { display:block; margin-top:6px; font-size:.75rem; color:var(--dim); line-height:1.5; }
+.g80-add-model { grid-column:1/-1; display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
+.g80-add-model input:not([type=checkbox]) { max-width:360px; }
+.g80-global-error { max-width:1180px; margin:0 auto 24px; padding:15px; border:1px solid var(--magenta); }
+.g80-details { margin:16px 0; color:var(--dim); font-size:.8rem; }
+.g80-details summary { cursor:pointer; margin-bottom:12px; }
+.g80-details pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:300px; overflow:auto; font:inherit; line-height:1.6; }
+.g80-mini[aria-pressed=true] { color:var(--cyan); outline:1px solid var(--cyan); }
+.g80-texto,.g80-batch-id { overflow-wrap:anywhere; }
+.g80-batch-id { color:var(--dim); font-size:.75rem; }
+.g80-fita .g80-mini { display:inline-block; width:auto; padding:6px 9px; border:1px solid var(--line); }
+.g80-history-tools { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.g80-history-tools label { width:100%; color:var(--dim); font-size:.8rem; }
+.g80-history-tools input { min-width:0; flex:1; }
+.g80-fita button:disabled { opacity:.5; cursor:default; }
+.g80 select { text-overflow:ellipsis; }
+.g80-campo input { max-width:100%; }
+.g80-campo.g80-inline { flex-direction:row; flex-wrap:wrap; align-items:center; }
+.g80-fita ol { grid-template-columns:minmax(0,1fr); }
+.g80-fita li { min-width:0; }
+.g80-history-tools .g80-mini { flex:none; }
+@media(max-width:650px) { .g80-conexao { grid-template-columns:1fr; } .g80-mini-acoes { flex-wrap:wrap; } }

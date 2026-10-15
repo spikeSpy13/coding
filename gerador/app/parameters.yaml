@@ -1,0 +1,116 @@
+eixos:
+  tipo_texto:
+    camada: 1
+    nome: Tipo de texto
+    valores: [relato, descricao, narracao, dissertacao, explicacao, instrucao, dialogo, opiniao]
+  pessoa:
+    camada: 1
+    nome: Pessoa
+    valores: [primeira, primeira_plural, segunda, terceira, impessoal]
+  tempo_verbal:
+    camada: 1
+    nome: Tempo verbal
+    valores: [passado, presente, futuro]
+  modo_desenvolvimento:
+    camada: 1
+    nome: Desenvolvimento
+    valores: [definicao, exemplificacao, comparacao, causa_consequencia, enumeracao, autoridade, narracao, descricao]
+  registro:
+    camada: 1
+    nome: Registro
+    valores: [formal, informal, tecnico, literario]
+  tom:
+    camada: 1
+    nome: Tom
+    valores: [neutro, nostalgico, ironico, tenso, leve, serio, bem_humorado]
+  publico:
+    camada: 1
+    nome: Público
+    valores: [crianca, jovem, adulto, especialista]
+  variante:
+    camada: 1
+    nome: Variante
+    valores: [pt_br, pt_pt]
+    pesos: {pt_br: 0.9, pt_pt: 0.1}
+  tamanho:
+    camada: 2
+    nome: Tamanho
+    valores: [curto, medio, longo]
+  complexidade_sintatica:
+    camada: 2
+    nome: Complexidade sintática
+    valores: [simples, mista, complexa]
+  vocabulario:
+    camada: 2
+    nome: Vocabulário
+    valores: [simples, medio, rico]
+  posicao_ideia_central:
+    camada: 2
+    nome: Posição da ideia central
+    valores: [inicio, fim, diluida]
+  tipo_paragrafo:
+    camada: 2
+    nome: Estrutura do parágrafo
+    valores: [padrao, enfase, transicao, abertura, conclusao]
+  ousadia:
+    camada: 3
+    nome: Ousadia
+    valores: [conservadora, equilibrada, ousada]
+    padrao: equilibrada
+
+rotulos:
+  tipo_texto:
+    relato: relato de uma experiência vivida
+    descricao: descrição de algo ou alguém
+    narracao: narração de uma sequência de acontecimentos
+    dissertacao: dissertação que defende uma ideia com argumentos
+    explicacao: explicação de como ou por que algo acontece
+    instrucao: instrução com orientações e ações
+    dialogo: diálogo narrado em um único parágrafo
+    opiniao: texto de opinião
+  pessoa:
+    primeira: primeira pessoa (eu)
+    primeira_plural: primeira pessoa do plural (nós)
+    segunda: segunda pessoa (você)
+    terceira: terceira pessoa
+    impessoal: voz impessoal
+  tempo_verbal: {passado: passado, presente: presente, futuro: futuro}
+  modo_desenvolvimento:
+    definicao: definição
+    exemplificacao: exemplificação
+    comparacao: comparação
+    causa_consequencia: causa e consequência
+    enumeracao: enumeração
+    autoridade: argumento de autoridade, sem inventar citações ou fontes
+    narracao: narração
+    descricao: descrição
+  registro: {formal: formal, informal: informal, tecnico: técnico, literario: literário}
+  tom: {neutro: neutro, nostalgico: nostálgico, ironico: irônico, tenso: tenso, leve: leve, serio: sério, bem_humorado: bem-humorado}
+  publico: {crianca: criança, jovem: jovem, adulto: adulto, especialista: especialista}
+  variante: {pt_br: português do Brasil, pt_pt: português de Portugal}
+  tamanho: {curto: curto, medio: médio, longo: longo}
+  complexidade_sintatica: {simples: frases curtas e simples, mista: frases de comprimentos variados, complexa: frases longas e subordinadas}
+  vocabulario: {simples: simples, medio: médio, rico: rico}
+  posicao_ideia_central: {inicio: no tópico frasal inicial, fim: no fim, diluida: diluída ao longo do texto}
+  tipo_paragrafo:
+    padrao: tópico frasal, desenvolvimento e fechamento
+    enfase: ênfase, curta e incisiva
+    transicao: transição entre ideias
+    abertura: abertura de um texto
+    conclusao: conclusão de um texto
+  ousadia: {conservadora: conservadora, equilibrada: equilibrada, ousada: ousada}
+
+tamanho_frases:
+  curto: [2, 3]
+  medio: [4, 6]
+  longo: [7, 10]
+
+# Identificadores OpenRouter podem ser adicionados aqui. Nenhuma capacidade é presumida.
+modelos:
+  padrao:
+    temperatura: {suportada: false}
+temperatura: {min: 0.0, max: 1.0, padrao: 1.0, jitter_lote: 0.15}
+frases_ousadia:
+  conservadora: Prefira construções claras e convencionais.
+  equilibrada: Equilibre clareza e originalidade.
+  ousada: Busque imagens, comparações e escolhas de palavras pouco óbvias, evitando clichês.
