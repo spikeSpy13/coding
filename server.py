@@ -22,7 +22,7 @@ def execute(code):
                 result = subprocess.run(
                     [sys.executable, '-I', '-u', str(path)], cwd=directory,
                     stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT,
-                    timeout=10, env={'PATH': os.defpath, 'PYTHONIOENCODING': 'utf-8'},
+                    timeout=60, env={'PATH': os.defpath, 'PYTHONIOENCODING': 'utf-8'},
                 )
                 status = result.returncode
             except subprocess.TimeoutExpired:
@@ -32,7 +32,7 @@ def execute(code):
             if output.read(1):
                 text += '\n[Saída truncada em 100 KB]'
             if status == 124:
-                text += '\n[Execução interrompida após 10 segundos]'
+                text += '\n[Execução interrompida após 60 segundos]'
             return {'output': text, 'exit_code': status}
 
 

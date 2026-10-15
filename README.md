@@ -20,7 +20,7 @@ A aplicação atende em `http://127.0.0.1:8000`. A variável `PORT` permite troc
 
 ## Execução
 
-O Python usa um diretório temporário por execução, sem entrada interativa, com limite de 10 segundos e retorno de até 100 KB de saída. Arquivos temporários são removidos depois. O runner tem acesso às permissões do usuário do servidor: **não é um sandbox de segurança**. Use apenas código confiável e não exponha este servidor à Internet ou a usuários não confiáveis. Para um serviço público, implemente isolamento em contêineres e autenticação antes de disponibilizá-lo.
+O Python usa um diretório temporário por execução, sem entrada interativa, com limite de 60 segundos (1 minuto) e retorno de até 100 KB de saída. Arquivos temporários são removidos depois. O runner tem acesso às permissões do usuário do servidor: **não é um sandbox de segurança**. Use apenas código confiável e não exponha este servidor à Internet ou a usuários não confiáveis. Para um serviço público, implemente isolamento em contêineres e autenticação antes de disponibilizá-lo.
 
 A geração nunca executa código automaticamente. A chave não é registrada em logs nem persistida pela aplicação. O servidor precisa acessar `openrouter.ai` via HTTPS. A interface funciona sem as fontes externas opcionais do Google.
 

@@ -17,9 +17,9 @@ class RunnerTests(unittest.TestCase):
         self.assertIn('ValueError: teste', result['output'])
 
     def test_timeout(self):
-        result = server.execute('while True: pass')
+        result = server.execute('import time; time.sleep(65)')
         self.assertEqual(result['exit_code'], 124)
-        self.assertIn('10 segundos', result['output'])
+        self.assertIn('60 segundos', result['output'])
 
     @patch.dict('os.environ', {}, clear=True)
     def test_missing_key(self):
