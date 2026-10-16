@@ -104,8 +104,9 @@ def create_app(settings=None, client_factory=None, speech_client=None):
             audio = await speech.synthesize(body, key)
         except SpeechError as error:
             raise HTTPException(error.status, str(error)) from None
+        extension = 'wav' if audio.media_type == 'audio/wav' else 'mp3'
         return Response(audio.content, media_type=audio.media_type,
-                        headers={'Content-Disposition': 'inline; filename="paragrafo.mp3"'})
+                        headers={'Content-Disposition': f'inline; filename="paragrafo.{extension}"'})
 
     @app.post('/gerar/lote')
     async def batch(body: BatchRequest):

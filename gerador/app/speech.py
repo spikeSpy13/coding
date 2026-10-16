@@ -1,5 +1,8 @@
 """OpenRouter speech synthesis. Audio and credentials are never written to disk."""
 from dataclasses import dataclass
+from email.message import Message
+import io
+import wave
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
@@ -36,16 +39,42 @@ class SpeechAudio:
     media_type: str = 'audio/mpeg'
 
 
+def pcm_to_wav(content: bytes, content_type: str, *, gemini: bool = False) -> SpeechAudio:
+    """Wrap signed 16-bit little-endian PCM using the provider's audio metadata."""
+    header = Message()
+    header['content-type'] = content_type
+    try:
+        # Gemini documents 24 kHz mono; other providers must supply their format.
+        rate = int(header.get_param('rate', '24000' if gemini else '0'))
+        channels = int(header.get_param('channels', '1' if gemini else '0'))
+        if not 8000 <= rate <= 192000 or channels not in (1, 2):
+            raise ValueError
+        if not content or len(content) % (2 * channels):
+            raise ValueError
+    except (TypeError, ValueError):
+        raise SpeechError('O provedor retornou áudio PCM vazio, incompleto ou com formato inválido.') from None
+    output = io.BytesIO()
+    with wave.open(output, 'wb') as audio:
+        audio.setnchannels(channels)
+        audio.setsampwidth(2)
+        audio.setframerate(rate)
+        audio.writeframes(content)
+    return SpeechAudio(output.getvalue(), 'audio/wav')
+
+
 class OpenRouterSpeechClient:
     def __init__(self, transport=None):
         self.transport = transport
 
     async def synthesize(self, request: SpeechRequest, api_key: str) -> SpeechAudio:
-        payload = {'model': request.modelo, 'input': request.texto, 'response_format': 'mp3'}
+        gemini = request.modelo.startswith('google/gemini-') and '-tts' in request.modelo
+        payload = {'model': request.modelo, 'input': request.texto, 'response_format': 'pcm' if gemini else 'mp3'}
         if request.voz:
             payload['voice'] = request.voz
+        elif gemini:
+            payload['voice'] = 'Kore'
         # Some providers reject speed overrides. Omit the field at its default value.
-        if request.velocidade != 1:
+        if request.velocidade != 1 and not gemini:
             payload['speed'] = request.velocidade
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(120, connect=15), transport=self.transport) as client:
@@ -63,14 +92,17 @@ class OpenRouterSpeechClient:
                         }
                         raise SpeechError(messages.get(response.status_code, 'O provedor de voz está indisponível. Tente novamente mais tarde.'),
                                           response.status_code if response.status_code in messages else 502)
-                    media = response.headers.get('content-type', '').split(';')[0].strip().lower()
-                    if media not in ('audio/mpeg', 'audio/mp3', 'application/octet-stream'):
-                        raise SpeechError('O provedor não retornou áudio MP3. Confira se o modelo suporta síntese de voz neste formato.')
+                    content_type = response.headers.get('content-type', '')
+                    media = content_type.split(';')[0].strip().lower()
+                    if media not in ('audio/mpeg', 'audio/mp3', 'audio/pcm', 'application/octet-stream'):
+                        raise SpeechError('O provedor não retornou áudio em um formato reconhecido. Confira o modelo de voz.')
                     audio = bytearray()
                     async for chunk in response.aiter_bytes():
                         audio.extend(chunk)
                         if len(audio) > 20 * 1024 * 1024:
                             raise SpeechError('O áudio excedeu o limite de 20 MB. Use um parágrafo menor.')
+                    if media == 'audio/pcm' or (gemini and media == 'application/octet-stream'):
+                        return pcm_to_wav(bytes(audio), content_type, gemini=gemini)
                     if not (audio.startswith(b'ID3') or (len(audio) >= 2 and audio[0] == 255 and audio[1] & 224 == 224)):
                         raise SpeechError('O provedor retornou áudio vazio ou em formato inválido.')
                     return SpeechAudio(bytes(audio))

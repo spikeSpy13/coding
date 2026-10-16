@@ -26,7 +26,7 @@ it('reads the exact paragraph with the shared key; pause and replay reuse audio'
   expect(fetch).toHaveBeenCalledTimes(1);
   const [path, options] = fetch.mock.calls[0];
   expect(path).toBe('/audio/ler');
-  expect(JSON.parse(options.body)).toEqual({ texto:text, ...settings, api_key:props.apiKey });
+  expect(JSON.parse(options.body)).toEqual({ texto:text, modelo:settings.modelo, voz:settings.voz, api_key:props.apiKey });
   fireEvent.click(screen.getByRole('button', { name: 'Ⅱ Pausar' }));
   fireEvent.click(screen.getByRole('button', { name: '▶ Ouvir' }));
   await screen.findByRole('button', { name: 'Ⅱ Pausar' });
@@ -122,5 +122,45 @@ it('keeps fetched audio when the browser initially blocks autoplay', async () =>
 
 it('rejects corrupted persisted settings', () => {
   localStorage.setItem('gerador-leitura','{"modelo":4}');
-  expect(storedSpeechSettings()).toEqual({modelo:'',voz:'',velocidade:1});
+  expect(storedSpeechSettings()).toEqual({modelo:'google/gemini-3.8-flash-lite-tts',voz:'',velocidade:1});
+});
+
+it('changes playback speed locally without another paid synthesis request', async () => {
+  const view = render(<ParagraphAudio {...props} settings={{...settings,modelo:'google/gemini-3.8-flash-lite-tts'}} />);
+  fireEvent.click(screen.getByRole('button', {name:'▶ Ouvir'}));
+  await screen.findByRole('button', {name:'Ⅱ Pausar'});
+  view.rerender(<ParagraphAudio {...props} settings={{...settings,modelo:'google/gemini-3.8-flash-lite-tts',velocidade:1.5}} />);
+  expect(view.container.querySelector('audio').playbackRate).toBe(1.5);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(fetch.mock.calls[0][1].body)).not.toHaveProperty('velocidade');
+  expect(revokeURL).not.toHaveBeenCalled();
+});
+
+it('offers the Gemini voice selector, persists the choice and sends it to speech', async () => {
+  function Saved() {
+    const [value,setValue] = useState(storedSpeechSettings);
+    return <ParagraphAudio {...props} settings={value} onSettings={setValue} />;
+  }
+  const view = render(<Saved />);
+  fireEvent.click(screen.getByRole('button', {name:'Configurar leitura'}));
+  const voice = screen.getByRole('combobox', {name:'Voz (opcional)'});
+  expect(within(voice).getAllByRole('option')).toHaveLength(31);
+  expect(within(voice).getByRole('option', {name:'Aoede',exact:true})).toBeTruthy();
+  fireEvent.change(voice,{target:{value:'Puck'}});
+  fireEvent.click(screen.getByRole('button', {name:'Salvar configurações de leitura'}));
+  view.unmount(); render(<Saved />);
+  fireEvent.click(screen.getByRole('button', {name:'Configurar leitura'}));
+  expect(screen.getByRole('combobox', {name:'Voz (opcional)'}).value).toBe('Puck');
+  fireEvent.click(screen.getByRole('button', {name:'▶ Ouvir'}));
+  await screen.findByRole('button', {name:'Ⅱ Pausar'});
+  expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchObject({modelo:'google/gemini-3.8-flash-lite-tts',voz:'Puck'});
+});
+
+it('uses a free voice field for other providers and preserves a previously saved voice', () => {
+  render(<ParagraphAudio {...props} settings={{...settings,modelo:'google/gemini-3.8-flash-lite-tts',voz:'FutureVoice'}} />);
+  fireEvent.click(screen.getByRole('button', {name:'Configurar leitura'}));
+  expect(screen.getByRole('combobox', {name:'Voz (opcional)'}).value).toBe('FutureVoice');
+  fireEvent.change(screen.getByLabelText('Modelo de voz OpenRouter'),{target:{value:'provider/tts'}});
+  expect(screen.queryByRole('combobox', {name:'Voz (opcional)'})).toBeNull();
+  expect(screen.getByRole('textbox', {name:'Voz (opcional)'}).value).toBe('FutureVoice');
 });

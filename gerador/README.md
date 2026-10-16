@@ -35,9 +35,15 @@ Para desenvolver a interface com atualização automática, mantenha o backend n
 
 Cada parágrafo exibido tem um botão **▶ Ouvir** e uma **seta ▾** logo abaixo do texto. Na seta, informe o identificador `provedor/modelo` de um modelo **TTS (síntese de voz)** disponível no OpenRouter, a voz opcional e a velocidade. Clique em **Salvar configurações de leitura**: os ajustes são compartilhados entre os parágrafos e restaurados no mesmo navegador ao reabrir a página. A leitura usa a mesma chave OpenRouter configurada no topo. O modelo de voz é independente do modelo que escreve os parágrafos.
 
-Ao apertar **Ouvir**, o backend envia o texto exato do parágrafo à rota oficial `POST /api/v1/audio/speech` e solicita MP3. O modelo escolhido precisa suportar essa rota e esse formato; modelos apenas de texto ou de chat com áudio podem não ser compatíveis. Os identificadores de voz dependem do provedor. Com voz vazia e velocidade 1×, os campos opcionais são omitidos para usar os padrões do modelo. A referência do contrato é o [OpenAPI oficial do OpenRouter](https://openrouter.ai/openapi.json).
+O modelo inicial é `google/gemini-3.8-flash-lite-tts`. Configurações de leitura já salvas têm prioridade; para trocar uma escolha anterior, abra a seta, informe esse identificador e salve. A disponibilidade do modelo depende do OpenRouter.
 
-O botão permite pausar e continuar. Ao ouvir outro parágrafo, a leitura anterior é pausada. O áudio fica temporariamente na memória da página; repeti-lo sem trocar o texto ou a configuração reutiliza o áudio. Trocar texto, chave, modelo, voz ou velocidade, sair do resultado ou recarregar a página descarta essa cópia. Para ouvir um texto antigo, abra-o pelo histórico. Áudios não são gravados no SQLite nem exportados.
+Ao selecionar um modelo Gemini TTS, o campo de voz vira um seletor com as 30 vozes listadas pelo OpenRouter, incluindo Kore, Puck, Aoede e Zephyr. Escolha a voz e clique em **Salvar configurações de leitura**. Para outros provedores, o campo continua aceitando o identificador de voz em texto.
+
+Ao apertar **Ouvir**, o backend envia o texto do parágrafo à rota oficial `POST /api/v1/audio/speech`. Para modelos `google/gemini-…-tts`, solicita **PCM** e fornece a voz **Kore** se o campo estiver vazio. O PCM de 16 bits recebe um cabeçalho WAV em memória, preservando as amostras e a frequência/canais informados pelo provedor (padrão documentado do Gemini: 24 kHz, mono), para reprodução no navegador. Gemini TTS rejeita MP3 e exige voz explícita. Você pode escolher outra voz compatível, como `Puck` ou `Aoede`.
+
+Para outros modelos, a requisição continua solicitando MP3; informe uma voz aceita pelo provedor, exceto quando ele documentar uma voz padrão. Modelos apenas de texto ou de chat com áudio podem não aceitar a rota TTS. A régua de velocidade atua na reprodução do navegador, sem enviar um parâmetro de velocidade ao provedor nem gerar outra chamada. Na API, `velocidade` ainda é aceito para clientes externos com modelos que o suportam; esse campo é omitido na chamada ao Gemini. Referências: [guia TTS](https://openrouter.ai/docs/guides/overview/multimodal/tts), [exemplo oficial de Gemini PCM/WAV](https://openrouter.ai/docs/cookbook/audio/two-voice-podcast) e [OpenAPI](https://openrouter.ai/openapi.json).
+
+O botão permite pausar e continuar. Ao ouvir outro parágrafo, a leitura anterior é pausada. O áudio fica temporariamente na memória da página; repeti-lo reutiliza o áudio, inclusive ao ajustar a velocidade. Trocar texto, chave, modelo ou voz, sair do resultado ou recarregar a página descarta essa cópia. Para ouvir um texto antigo, abra-o pelo histórico. Áudios não são gravados no SQLite nem exportados.
 
 Gerar uma nova leitura consome créditos do OpenRouter. Não há repetição automática de chamadas de áudio. Cancelar interrompe a espera na página, mas uma síntese já recebida pelo provedor ainda pode ser cobrada. Falhas de chave, saldo, rede ou configuração aparecem junto ao botão; o parágrafo gerado permanece disponível. Sem chave e modelo reais, os testes validam a integração com respostas simuladas.
 
@@ -76,7 +82,7 @@ Use o mesmo navegador, perfil e endereço ao voltar. O armazenamento é separado
 | `GET /parametros` | Eixos, rótulos, padrões e capacidade do modelo padrão |
 | `POST /configuracao` | Capacidade do modelo selecionado; não persiste a chave ou configurações globais |
 | `POST /gerar` | Geração individual |
-| `POST /audio/ler` | Síntese de voz; recebe `texto`, `modelo`, `voz?`, `velocidade?`, `api_key?` e retorna MP3 sem cache |
+| `POST /audio/ler` | Síntese de voz; recebe `texto`, `modelo`, `voz?`, `velocidade?`, `api_key?` e retorna WAV para Gemini TTS ou MP3, sem cache |
 | `POST /gerar/lote` | Lote; `202` com ID quando assíncrono ou maior que 10 |
 | `GET /lotes/{id}` | Estado, progresso, itens e métricas |
 | `GET /historico?limite=50&offset=0&lote_id=…` | Histórico paginado |

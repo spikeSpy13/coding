@@ -1,7 +1,14 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 
 const STORAGE_KEY = 'gerador-leitura';
-const DEFAULTS = { modelo: '', voz: '', velocidade: 1 };
+const DEFAULTS = { modelo: 'google/gemini-3.8-flash-lite-tts', voz: '', velocidade: 1 };
+// OpenRouter /api/v1/models?output_modalities=speech, Gemini TTS supported_voices.
+const GEMINI_VOICES = [
+  'Zephyr', 'Puck', 'Charon', 'Kore', 'Fenrir', 'Leda', 'Orus', 'Aoede', 'Callirrhoe', 'Autonoe',
+  'Enceladus', 'Iapetus', 'Umbriel', 'Algieba', 'Despina', 'Erinome', 'Algenib', 'Rasalgethi',
+  'Laomedeia', 'Achernar', 'Alnilam', 'Schedar', 'Gacrux', 'Pulcherrima', 'Achird', 'Zubenelgenubi',
+  'Vindemiatrix', 'Sadachbia', 'Sadaltager', 'Sulafat',
+];
 
 export function storedSpeechSettings() {
   try {
@@ -23,8 +30,10 @@ export default function ParagraphAudio({ text, apiKey, serverKey, settings, onSe
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const gemini = draft.modelo.trim().startsWith('google/gemini-') && draft.modelo.includes('-tts');
 
   useEffect(() => { setDraft(settings); }, [settings]);
+  useEffect(() => { audio.current.playbackRate = settings.velocidade; }, [settings.velocidade]);
 
   useEffect(() => {
     const element = audio.current;
@@ -47,7 +56,7 @@ export default function ParagraphAudio({ text, apiKey, serverKey, settings, onSe
       if (url.current) URL.revokeObjectURL(url.current);
       url.current = null;
     };
-  }, [text, apiKey, settings.modelo, settings.voz, settings.velocidade, id]);
+  }, [text, apiKey, settings.modelo, settings.voz, id]);
 
   function save() {
     const next = { modelo: draft.modelo.trim(), voz: draft.voz.trim(), velocidade: Number(draft.velocidade) };
@@ -80,7 +89,7 @@ export default function ParagraphAudio({ text, apiKey, serverKey, settings, onSe
         setLoading(true);
         const response = await fetch('/audio/ler', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
-          body: JSON.stringify({ texto: text, ...settings, api_key: apiKey.trim() || undefined }),
+          body: JSON.stringify({ texto: text, modelo: settings.modelo, voz: settings.voz, api_key: apiKey.trim() || undefined }),
         });
         if (!response.ok) {
           const data = await response.json().catch(() => ({}));
@@ -93,6 +102,7 @@ export default function ParagraphAudio({ text, apiKey, serverKey, settings, onSe
       }
       if (controller.signal.aborted) return;
       setLoading(false);
+      audio.current.playbackRate = settings.velocidade;
       try { await audio.current.play(); }
       catch (e) {
         if (!controller.signal.aborted) {
@@ -124,13 +134,17 @@ export default function ParagraphAudio({ text, apiKey, serverKey, settings, onSe
           <input value={draft.modelo} maxLength={200} placeholder="provedor/modelo-tts" autoComplete="off" onChange={e => setDraft({ ...draft, modelo: e.target.value })} />
         </label>
         <label className="g80-campo">Voz (opcional)
-          <input value={draft.voz} maxLength={120} placeholder="Padrão do modelo" onChange={e => setDraft({ ...draft, voz: e.target.value })} />
+          {gemini ? <select value={draft.voz} onChange={e => setDraft({ ...draft, voz: e.target.value })}>
+            <option value="">Kore (padrão)</option>
+            {draft.voz && !GEMINI_VOICES.includes(draft.voz) && <option value={draft.voz}>{draft.voz} (configurada anteriormente)</option>}
+            {GEMINI_VOICES.map(voice => <option key={voice} value={voice}>{voice}</option>)}
+          </select> : <input value={draft.voz} maxLength={120} placeholder="Voz do provedor" onChange={e => setDraft({ ...draft, voz: e.target.value })} />}
         </label>
-        <label className="g80-campo">Velocidade da leitura: {draft.velocidade}×
+        <label className="g80-campo">Velocidade de reprodução: {draft.velocidade}×
           <input type="range" min="0.5" max="2" step="0.05" value={draft.velocidade} onChange={e => setDraft({ ...draft, velocidade: Number(e.target.value) })} />
         </label>
       </div>
-      <small>O modelo precisa aceitar saída MP3. Voz e velocidade dependem do provedor; se houver erro, deixe a voz vazia e a velocidade em 1×. Gerar áudio utiliza créditos do OpenRouter.</small>
+      <small>No Gemini TTS, voz vazia usa Kore; você também pode escolher Puck, Aoede ou outra voz compatível. Outros modelos usam as vozes do respectivo provedor. A velocidade é ajustada no navegador. Gerar áudio utiliza créditos do OpenRouter.</small>
       <button className="g80-mini" onClick={save}>Salvar configurações de leitura</button>
     </div>}
     {loading && <p role="status">Preparando a leitura do parágrafo…</p>}
