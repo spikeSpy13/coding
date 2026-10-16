@@ -1,50 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { call, storedModels, saveModels, storedApiKey, saveApiKey, forgetApiKey, storedSelectedModel, saveSelectedModel } from './api.js';
-import ParagraphAudio, { storedSpeechSettings } from './ParagraphAudio.jsx';
+import { storedSpeechSettings } from './ParagraphAudio.jsx';
+import ParagraphItem from './ParagraphItem.jsx';
+import HistoryPage from './HistoryPage.jsx';
 import './gerador80s.css';
 import './app.css';
 
-const hora = value => new Date(value).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+const currentPage = () => window.location.hash === '#historico' ? 'historico' : 'gerador';
 const label = (config, axis, value) => config.rotulos[axis]?.[value] || value;
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-function Item({ item, index, config, busy, onRegenerate, onApprove, apiKey, speechSettings, onSpeechSettings }) {
-  const [copied, setCopied] = useState(false);
-  const [copyError, setCopyError] = useState(false);
-  async function copy() {
-    try { await navigator.clipboard.writeText(item.texto); setCopied(true); setCopyError(false); }
-    catch { setCopyError(true); }
-  }
-  return <article className="g80-item">
-    <p className="g80-n">FAIXA {String(index + 1).padStart(2, '0')} · {item.status === 'ok' ? 'FORMATO VERIFICADO' : 'FALHOU'}</p>
-    {item.status === 'ok' && <small>A verificação automática não substitui a revisão da escrita.</small>}
-    <p className="g80-texto">{item.texto || 'Nenhum texto retornado.'}</p>
-    <ParagraphAudio text={item.texto || ''} apiKey={apiKey} serverKey={config.chave_configurada} settings={speechSettings} onSettings={onSpeechSettings} />
-    {item.motivo_falha && <p className="g80-erro">{item.motivo_falha}</p>}
-    <ul className="g80-chips" aria-label="Parâmetros usados">
-      {Object.entries(item.parametros_finais).map(([axis, value]) => <li className="g80-chip" key={axis}><b>{config.eixos[axis]?.nome || axis}</b>{label(config, axis, value)}</li>)}
-    </ul>
-    {item.avisos?.map((warning, i) => <p className="g80-aviso" key={i}>! {warning}</p>)}
-    <div className="g80-mini-acoes">
-      <button className="g80-mini" onClick={copy}>{copied ? 'Copiado' : 'Copiar'}</button>
-      <button className="g80-mini" disabled={busy} onClick={() => onRegenerate(item)}>Regenerar com os mesmos parâmetros</button>
-      <button className="g80-mini" aria-pressed={item.aprovado === true} onClick={() => onApprove(item, true)}>Aprovar</button>
-      <button className="g80-mini" aria-pressed={item.aprovado === false} onClick={() => onApprove(item, false)}>Reprovar</button>
-    </div>
-    {copyError && <p className="g80-aviso">Não foi possível copiar. Selecione o texto e copie manualmente.</p>}
-    <details className="g80-details"><summary>Prompt e metadados</summary>
-      <p>Modelo: {item.modelo} · Temperatura: {item.temperatura ?? 'omitida'} · Tokens: {item.tokens_entrada ?? '—'} / {item.tokens_saida ?? '—'}</p>
-      <pre>{item.prompt}</pre>
-      <p>{item.tentativas?.length || 1} tentativa(s) · {new Date(item.criado_em).toLocaleString('pt-BR')}</p>
-      {item.tentativas?.map((attempt, i) => <details key={i}><summary>Tentativa {i + 1} · {attempt.finish_reason || attempt.tipo || 'sem diagnóstico antigo'}</summary>
-        <p>Orçamento: {attempt.max_tokens ?? 'não registrado'} · Saída: {attempt.tokens_saida ?? 'não informada'} · Raciocínio: {attempt.tokens_raciocinio ?? 'não informado'}</p>
-        {attempt.motivos?.map((reason, j) => <p className="g80-aviso" key={j}>{reason}</p>)}
-        <pre>{attempt.texto || 'Sem texto final.'}</pre>
-        {attempt.diagnostico && <pre>{JSON.stringify(attempt.diagnostico, null, 2)}</pre>}
-      </details>)}
-    </details>
-  </article>;
-}
 
 export default function Gerador80s() {
   const [config, setConfig] = useState(null);
@@ -74,9 +38,11 @@ export default function Gerador80s() {
   const [threshold, setThreshold] = useState(0.4);
   const [items, setItems] = useState([]);
   const [stats, setStats] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [filter, setFilter] = useState('');
-  const [offset, setOffset] = useState(0);
+  const [page, setPage] = useState(currentPage);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [historyVersion, setHistoryVersion] = useState(0);
+  const menu = useRef(null);
+  const gear = useRef(null);
   const [batchId, setBatchId] = useState('');
   const [progress, setProgress] = useState('');
   const [busy, setBusy] = useState(false);
@@ -84,6 +50,30 @@ export default function Gerador80s() {
   const alive = useRef(true);
   const session = useRef('');
   const modelVersion = useRef(0);
+
+  useEffect(() => {
+    function navigate() { setPage(currentPage()); setMenuOpen(false); }
+    window.addEventListener('hashchange', navigate);
+    return () => window.removeEventListener('hashchange', navigate);
+  }, []);
+
+  useEffect(() => {
+    document.title = page === 'historico' ? 'Fita histórica · Gerador de Parágrafos' : 'Gerador de Parágrafos';
+  }, [page]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function closeOutside(event) { if (!menu.current?.contains(event.target)) setMenuOpen(false); }
+    function escape(event) {
+      if (event.key === 'Escape') { setMenuOpen(false); gear.current?.focus(); }
+    }
+    document.addEventListener('pointerdown', closeOutside);
+    document.addEventListener('keydown', escape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside);
+      document.removeEventListener('keydown', escape);
+    };
+  }, [menuOpen]);
 
   useEffect(() => {
     alive.current = true;
@@ -102,7 +92,6 @@ export default function Gerador80s() {
       setModels(known);
       const selected = storedSelectedModel();
       if (known.length) selectModel(known.some(m => m.id === selected) ? selected : known[0].id, known);
-      refreshHistory();
       const pending = sessionStorage.getItem('gerador-lote-ativo');
       if (pending) {
         setBusy(true);
@@ -184,15 +173,6 @@ export default function Gerador80s() {
     };
   }
 
-  async function refreshHistory(lote = filter, position = offset) {
-    try {
-      const query = new URLSearchParams({limite: '20', offset: String(position)});
-      if (lote.trim()) query.set('lote_id', lote.trim());
-      const data = await call('/historico?' + query);
-      if (alive.current) setHistory(data);
-    } catch(e) { if (alive.current) setError(e.message); }
-  }
-
   async function followBatch(id) {
     setBatchId(id);
     while (alive.current) {
@@ -203,7 +183,7 @@ export default function Gerador80s() {
       if (!['pendente', 'processando'].includes(data.status)) {
         sessionStorage.removeItem('gerador-lote-ativo');
         if (data.erro) setError(data.erro);
-        await refreshHistory();
+        setHistoryVersion(version => version + 1);
         return;
       }
       await wait(1000);
@@ -222,7 +202,7 @@ export default function Gerador80s() {
         await followBatch(data.lote_id);
       } else {
         const data = await call('/gerar', payload);
-        setItems([data]); setBatchId(''); await refreshHistory();
+        setItems([data]); setBatchId(''); setHistoryVersion(version => version + 1);
       }
     } catch(e) { setError(e.message); }
     finally { if (alive.current) setBusy(false); }
@@ -232,19 +212,7 @@ export default function Gerador80s() {
     try {
       const updated = await call('/geracoes/' + item.id, {aprovado: approved}, 'PATCH');
       setItems(all => all.map(value => value.id === item.id ? updated : value));
-      setHistory(all => all.map(value => value.id === item.id ? updated : value));
-    } catch(e) { setError(e.message); }
-  }
-
-  async function download(format) {
-    try {
-      const query = new URLSearchParams({formato: format});
-      if (filter.trim()) query.set('lote_id', filter.trim());
-      const response = await fetch('/exportar?' + query);
-      if (!response.ok) throw new Error('Não foi possível exportar o histórico.');
-      const url = URL.createObjectURL(await response.blob());
-      const anchor = document.createElement('a'); anchor.href = url; anchor.download = `paragrafos.${format}`; anchor.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      return updated;
     } catch(e) { setError(e.message); }
   }
 
@@ -270,12 +238,25 @@ export default function Gerador80s() {
   return <div className="g80">
     <div className="g80-sun" aria-hidden="true"/><div className="g80-floor" aria-hidden="true"/>
     <header className="g80-head">
-      <div><p className="g80-eyebrow">Sistema de texto · Mod. 84</p><h1 className="g80-title">Gerador de Parágrafos</h1></div>
-      <div className="g80-modo" role="group" aria-label="Modo de geração">
+      <div><p className="g80-eyebrow">Sistema de texto · Mod. 84</p><h1 className="g80-title">{page === 'historico' ? 'Fita histórica' : 'Gerador de Parágrafos'}</h1></div>
+      <div className="g80-head-actions">
+      {page === 'gerador' && <div className="g80-modo" role="group" aria-label="Modo de geração">
         <button aria-pressed={!batchMode} disabled={busy} onClick={() => switchMode(false)}>Individual</button>
         <button aria-pressed={batchMode} disabled={busy} onClick={() => switchMode(true)}>Lote</button>
+      </div>}
+      <div className="g80-menu" ref={menu}>
+        <button className="g80-mini g80-gear" ref={gear} aria-label="Abrir menu" aria-expanded={menuOpen} aria-controls="navigation-menu" onClick={() => setMenuOpen(!menuOpen)}>⚙</button>
+        {menuOpen && <nav className="g80-menu-links" id="navigation-menu" aria-label="Navegação principal">
+          <a href="#gerador" aria-current={page === 'gerador' ? 'page' : undefined} onClick={() => setMenuOpen(false)}>Gerador</a>
+          <a href="#historico" aria-current={page === 'historico' ? 'page' : undefined} onClick={() => setMenuOpen(false)}>Fita histórica</a>
+        </nav>}
+      </div>
       </div>
     </header>
+    {error && <p role="alert" className="g80-global-error g80-erro">{error}</p>}
+    {page === 'historico' ? <HistoryPage config={config} apiKey={apiKey} speechSettings={speechSettings} onSpeechSettings={setSpeechSettings}
+      busy={busy} version={historyVersion} batchId={batchId} onApprove={approve}
+      onRegenerate={item => { window.location.hash = 'gerador'; generate('manual', item); }} /> : <>
     <section className="g80-conexao g80-painel" aria-label="Configuração OpenRouter">
       <div className="g80-campo"><label htmlFor="api-key">Chave OpenRouter</label>
         <input id="api-key" type="password" autoComplete="off" spellCheck="false" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={config.chave_configurada ? 'Chave do servidor disponível' : 'Cole sua chave aqui'} disabled={busy}/>
@@ -292,7 +273,6 @@ export default function Gerador80s() {
         <button className="g80-mini" type="submit">Adicionar ao seletor</button><button className="g80-mini" type="button" onClick={() => setAdding(false)}>Cancelar</button>
       </form>}
     </section>
-    {error && <p role="alert" className="g80-global-error g80-erro">{error}</p>}
     <main className="g80-grid">
       <section className="g80-painel" aria-label="Painel de controle">
         {[1,2].map(layer => <div className="g80-canal" key={layer}>
@@ -328,16 +308,12 @@ export default function Gerador80s() {
           <p className="g80-status" role="status"><span className={busy ? 'g80-ocupado' : ''}>{busy ? 'Gerando…' : 'Pronto'}</span><span>{progress || `${items.length} parágrafo(s)`}</span></p>
           {batchId && <p className="g80-batch-id">Lote: {batchId}</p>}
           {!items.length && <p className="g80-vazio">Escolha o modelo, ajuste os parâmetros e aperte Gerar.</p>}
-          <div className={items.length > 1 ? 'g80-lista' : ''}>{items.map((item,index) => <Item key={item.id} item={item} index={index} config={config} busy={busy} onRegenerate={value => generate('manual', value)} onApprove={approve} apiKey={apiKey} speechSettings={speechSettings} onSpeechSettings={setSpeechSettings}/>)}</div>
+          <div className={items.length > 1 ? 'g80-lista' : ''}>{items.map((item,index) => <ParagraphItem key={item.id} item={item} index={index} config={config} busy={busy} onRegenerate={value => generate('manual', value)} onApprove={approve} apiKey={apiKey} speechSettings={speechSettings} onSpeechSettings={setSpeechSettings}/>)}</div>
           {stats && <><dl className="g80-metricas"><div><dt>Aberturas únicas</dt><dd><strong>{Math.round(stats.aberturas_unicas * 100)}%</strong></dd></div><div><dt>Diversidade lexical</dt><dd><strong>{Math.round(stats.diversidade_lexical * 100)}%</strong></dd></div><div><dt>Média de palavras</dt><dd><strong>{Math.round(stats.comprimento.media)}</strong></dd></div></dl><details className="g80-details"><summary>Distribuição dos parâmetros e métricas completas</summary><pre>{JSON.stringify(stats,null,2)}</pre></details></>}
         </section>
-        <section className="g80-painel g80-fita" aria-label="Histórico"><h2>Fita · Histórico</h2>
-          <form className="g80-history-tools" onSubmit={e => {e.preventDefault(); setOffset(0); refreshHistory(filter,0);}}><label htmlFor="history-filter">Filtrar por ID do lote</label><input id="history-filter" type="text" value={filter} onChange={e => setFilter(e.target.value)} placeholder="Todos os lotes"/><button className="g80-mini">Filtrar</button>{batchId && <button className="g80-mini" type="button" onClick={() => {setFilter(batchId);setOffset(0);refreshHistory(batchId,0);}}>Lote atual</button>}</form>
-          <div className="g80-mini-acoes"><button className="g80-mini" onClick={() => download('csv')}>Exportar CSV</button><button className="g80-mini" onClick={() => download('jsonl')}>Exportar JSONL</button></div>
-          {!history.length ? <p className="g80-vazio">Nenhum parágrafo encontrado.</p> : <ol>{history.map(item => <li key={item.id}><button disabled={busy} onClick={() => {setItems([item]);setStats(null);setProgress('');setBatchId(item.lote_id || '');}}><span className="g80-hora">{hora(item.criado_em)} · {item.status === 'ok' ? 'OK' : 'FALHOU'}{item.aprovado === true ? ' ✓' : item.aprovado === false ? ' ✕' : ''}</span><span className="g80-resumo">{item.texto || item.motivo_falha}</span></button></li>)}</ol>}
-          <div className="g80-mini-acoes"><button className="g80-mini" disabled={!offset} onClick={() => {const next=Math.max(0,offset-20);setOffset(next);refreshHistory(filter,next);}}>Anteriores</button><button className="g80-mini" disabled={history.length<20} onClick={() => {const next=offset+20;setOffset(next);refreshHistory(filter,next);}}>Próximos</button></div>
-        </section>
+
       </div>
     </main>
+    </>}
   </div>;
 }

@@ -24,6 +24,7 @@ export default function ParagraphAudio({ text, apiKey, serverKey, settings, onSe
   const audio = useRef(null);
   const url = useRef(null);
   const request = useRef(null);
+  const settingsToggle = useRef(null);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(settings);
   const [loading, setLoading] = useState(false);
@@ -59,6 +60,7 @@ export default function ParagraphAudio({ text, apiKey, serverKey, settings, onSe
   }, [text, apiKey, settings.modelo, settings.voz, id]);
 
   function save() {
+    setNotice('');
     const next = { modelo: draft.modelo.trim(), voz: draft.voz.trim(), velocidade: Number(draft.velocidade) };
     if (!next.modelo.includes('/') || /\s/.test(next.modelo) || next.modelo.startsWith('sk-')) {
       setError('Informe o identificador provedor/modelo de síntese de voz.'); return;
@@ -67,6 +69,8 @@ export default function ParagraphAudio({ text, apiKey, serverKey, settings, onSe
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       setNotice('Configurações de leitura salvas neste navegador.'); setError('');
+      setOpen(false);
+      settingsToggle.current?.focus();
     } catch {
       setError('Não foi possível salvar neste navegador. Os ajustes valem para esta sessão.');
     }
@@ -122,7 +126,7 @@ export default function ParagraphAudio({ text, apiKey, serverKey, settings, onSe
       <button className="g80-mini" disabled={loading || !text.trim()} onClick={play}>
         {loading ? 'Gerando áudio…' : playing ? 'Ⅱ Pausar' : '▶ Ouvir'}
       </button>
-      <button className="g80-mini" aria-label="Configurar leitura" aria-expanded={open} aria-controls={`${id}-settings`} onClick={() => setOpen(!open)}>{open ? '▴' : '▾'}</button>
+      <button className="g80-mini" ref={settingsToggle} aria-label="Configurar leitura" aria-expanded={open} aria-controls={`${id}-settings`} onClick={() => setOpen(!open)}>{open ? '▴' : '▾'}</button>
       {loading && <button className="g80-mini" onClick={cancel}>Cancelar leitura</button>}
     </div>
     <audio ref={audio} preload="none" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)}

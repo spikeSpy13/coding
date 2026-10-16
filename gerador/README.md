@@ -31,9 +31,17 @@ Para desenvolver a interface com atualização automática, mantenha o backend n
 5. Escolha valores fixos, aleatórios ou, no lote, **variar**. Ajuste tema, ousadia, semente, anti-repetição e quantidade de itens. Em **Ajustes de geração**, também é possível mudar máximo de tokens, limiar de similaridade e concorrência.
 6. Gere, copie, regenere com os mesmos parâmetros e modelo, ou aprove/reprove resultados. O histórico permanece no SQLite e pode ser filtrado por lote e exportado em CSV/JSONL.
 
+### Fita histórica
+
+No topo, abra a **engrenagem ⚙ → Fita histórica**. O histórico tem uma página própria, sem os controles de geração. Ela lista todos os parágrafos salvos em páginas de 20 itens, com **Anteriores/Próximos**, filtro por lote e exportação CSV/JSONL. Ao clicar em um item, os detalhes abrem abaixo da lista: texto completo, botão **Ouvir**, tags dos parâmetros, prompt, modelo utilizado, data e metadados. O prompt já aparece expandido nessa página. Os botões de copiar, aprovar/reprovar e regenerar continuam disponíveis.
+
+**Voltar ao gerador** retorna aos controles e resultados atuais sem perder os ajustes da sessão. Regenerar um item do histórico volta ao gerador usando os parâmetros e modelo desse item. A navegação também funciona com os botões voltar/avançar do navegador; recarregar na Fita histórica mantém essa página aberta. O áudio é interrompido ao trocar de página ou selecionar outro parágrafo.
+
 ### Leitura em voz alta pelo OpenRouter
 
 Cada parágrafo exibido tem um botão **▶ Ouvir** e uma **seta ▾** logo abaixo do texto. Na seta, informe o identificador `provedor/modelo` de um modelo **TTS (síntese de voz)** disponível no OpenRouter, a voz opcional e a velocidade. Clique em **Salvar configurações de leitura**: os ajustes são compartilhados entre os parágrafos e restaurados no mesmo navegador ao reabrir a página. A leitura usa a mesma chave OpenRouter configurada no topo. O modelo de voz é independente do modelo que escreve os parágrafos.
+
+Após salvar com sucesso, a caixa de configuração fecha automaticamente. Se algum campo estiver inválido ou o navegador impedir a gravação, ela permanece aberta e mostra o erro.
 
 O modelo inicial é `google/gemini-3.8-flash-lite-tts`. Configurações de leitura já salvas têm prioridade; para trocar uma escolha anterior, abra a seta, informe esse identificador e salve. A disponibilidade do modelo depende do OpenRouter.
 

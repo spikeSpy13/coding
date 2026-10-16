@@ -35,3 +35,24 @@ body { margin: 0; }
 .g80-audio-config > small { display: block; margin: .75rem 0; line-height: 1.5; }
 .g80-audio-config .g80-campos { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
 .g80-audio-config input { max-width: 100%; box-sizing: border-box; }
+
+.g80-head-actions { display:flex; align-items:center; gap:16px; }
+.g80-menu { position:relative; }
+.g80-gear { min-width:44px; min-height:44px; font-size:1.5rem; }
+.g80-menu-links { position:absolute; right:0; top:calc(100% + 8px); z-index:10; width:200px; padding:8px; border:1px solid var(--cyan); background:var(--field); box-shadow:0 8px 24px #0008; }
+.g80-menu-links a { display:block; padding:12px; color:var(--ink); text-decoration:none; }
+.g80-menu-links a:hover,.g80-menu-links a[aria-current=page] { color:var(--cyan); background:#ffffff09; }
+.g80 a:focus-visible,.g80 button:focus-visible { outline:2px solid var(--cyan); outline-offset:3px; }
+.g80-history-page { max-width:1000px; margin:auto; }
+.g80-history-heading { margin-bottom:24px; color:var(--dim); line-height:1.6; }
+.g80-history-heading a { display:inline-block; text-decoration:none; }
+.g80-history-page .g80-fita { padding:24px; }
+.g80-history-page .g80-fita ol button { flex-direction:column; gap:8px; padding:14px; }
+.g80-history-page .g80-fita ol button[aria-expanded=true] { border-color:var(--cyan); background:#ffffff09; }
+.g80-history-page .g80-fita .g80-resumo { width:100%; white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow-wrap:anywhere; }
+.g80-history-page .g80-hora { font-size:.75rem; }
+.g80-history-pagination { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; margin-top:20px; color:var(--dim); font-size:.8rem; }
+.g80-history-detail { margin-top:24px; scroll-margin-top:24px; }
+.g80-history-detail h2 { color:var(--cyan); font-size:1rem; margin:0 0 20px; }
+.g80-history-detail .g80-details pre { max-height:none; }
+@media(max-width:650px) { .g80-head-actions { width:100%; justify-content:space-between; } .g80-menu { margin-left:auto; } .g80-history-page .g80-fita { padding:16px; } }

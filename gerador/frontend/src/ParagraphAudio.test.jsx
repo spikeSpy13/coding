@@ -49,6 +49,9 @@ it('saves model, voice and speed and restores them on reopening', async () => {
   fireEvent.change(screen.getByRole('slider'), {target:{value:'1.25'}});
   fireEvent.click(screen.getByRole('button', { name:'Salvar configurações de leitura' }));
   expect(screen.getByRole('status').textContent).toContain('salvas');
+  expect(screen.queryByLabelText('Modelo de voz OpenRouter')).toBeNull();
+  expect(screen.getByRole('button', {name:'Configurar leitura'}).getAttribute('aria-expanded')).toBe('false');
+  expect(document.activeElement).toBe(screen.getByRole('button', {name:'Configurar leitura'}));
   expect(storedSpeechSettings()).toEqual({modelo:'provider/speech',voz:'voz-pt',velocidade:1.25});
   expect(JSON.stringify(localStorage)).not.toContain(props.apiKey);
   view.unmount(); render(<Saved />);
@@ -163,4 +166,17 @@ it('uses a free voice field for other providers and preserves a previously saved
   fireEvent.change(screen.getByLabelText('Modelo de voz OpenRouter'),{target:{value:'provider/tts'}});
   expect(screen.queryByRole('combobox', {name:'Voz (opcional)'})).toBeNull();
   expect(screen.getByRole('textbox', {name:'Voz (opcional)'}).value).toBe('FutureVoice');
+});
+
+it('keeps settings open when validation or persistence fails', () => {
+  render(<ParagraphAudio {...props}/>);
+  fireEvent.click(screen.getByRole('button',{name:'Configurar leitura'}));
+  fireEvent.change(screen.getByLabelText('Modelo de voz OpenRouter'),{target:{value:'invalid'}});
+  fireEvent.click(screen.getByRole('button',{name:'Salvar configurações de leitura'}));
+  expect(screen.getByLabelText('Modelo de voz OpenRouter')).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('Modelo de voz OpenRouter'),{target:{value:'provider/tts'}});
+  vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('blocked');});
+  fireEvent.click(screen.getByRole('button',{name:'Salvar configurações de leitura'}));
+  expect(screen.getByLabelText('Modelo de voz OpenRouter')).toBeTruthy();
+  expect(screen.getByRole('alert').textContent).toContain('Não foi possível salvar');
 });

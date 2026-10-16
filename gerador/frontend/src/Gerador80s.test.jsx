@@ -16,6 +16,7 @@ const item = {id:1, texto:'O jardim floresce todas as manhãs. As crianças brin
 let requests, generated;
 
 beforeEach(() => {
+  window.history.replaceState(null, '', '/');
   localStorage.clear(); sessionStorage.clear(); requests=[]; generated=[];
   vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
@@ -49,11 +50,49 @@ describe('Interface real', () => {
     localStorage.setItem('gerador-leitura', JSON.stringify({modelo:'provider/tts',voz:'voz-pt',velocidade:1.2}));
     generated = [item];
     render(<Gerador80s />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', {name:'Abrir menu'}));
+    await user.click(screen.getByRole('link', {name:'Fita histórica'}));
     fireEvent.click(await screen.findByRole('button', {name:/O jardim floresce/}));
     fireEvent.click(screen.getByRole('button', {name:'Configurar leitura'}));
     expect(screen.getByLabelText('Modelo de voz OpenRouter').value).toBe('provider/tts');
     expect(screen.getByLabelText('Voz (opcional)').value).toBe('voz-pt');
     expect(screen.getByRole('button', {name:'▶ Ouvir'})).toBeTruthy();
+  });
+  it('opens a dedicated history page and preserves generator controls and results on return', async () => {
+    const user=userEvent.setup();render(<Gerador80s />);await setupModel(user);
+    await user.type(screen.getByLabelText('Tema (opcional)'), 'jardim');
+    await user.click(screen.getByRole('button', {name:'Gerar',exact:true}));
+    await screen.findByText(item.texto,{selector:'.g80-texto'});
+    expect(screen.queryByRole('region',{name:'Lista de parágrafos'})).toBeNull();
+    await user.click(screen.getByRole('button',{name:'Abrir menu'}));
+    await user.click(screen.getByRole('link',{name:'Fita histórica'}));
+    await screen.findByRole('main',{name:'Fita histórica'});
+    expect(screen.queryByLabelText('Chave OpenRouter')).toBeNull();
+    expect(screen.queryByRole('region',{name:'Painel de controle'})).toBeNull();
+    await user.click(await screen.findByRole('button',{name:/O jardim floresce/}));
+    const details=screen.getByRole('region',{name:'Detalhes do parágrafo'});
+    expect(details.textContent).toContain('provider/test');
+    expect(screen.getByText('Prompt salvo').closest('details').open).toBe(true);
+    expect(screen.getByRole('list',{name:'Parâmetros usados'})).toBeTruthy();
+    await user.click(screen.getByRole('button',{name:'Aprovar',exact:true}));
+    await waitFor(()=>expect(screen.getByRole('button',{name:'Aprovar',exact:true}).getAttribute('aria-pressed')).toBe('true'));
+    await user.click(screen.getByRole('link',{name:'← Voltar ao gerador'}));
+    await screen.findByLabelText('Chave OpenRouter');
+    expect(screen.getByLabelText('Tema (opcional)').value).toBe('jardim');
+    expect(screen.getByText(item.texto,{selector:'.g80-texto'})).toBeTruthy();
+    expect(screen.getByRole('button',{name:'Aprovar',exact:true}).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('opens the history directly and closes the gear menu with Escape', async () => {
+    window.history.replaceState(null,'','/#historico');
+    render(<Gerador80s />);
+    await screen.findByRole('main',{name:'Fita histórica'});
+    expect(screen.queryByLabelText('Chave OpenRouter')).toBeNull();
+    fireEvent.click(screen.getByRole('button',{name:'Abrir menu'}));
+    fireEvent.keyDown(document,{key:'Escape'});
+    expect(screen.queryByRole('navigation',{name:'Navegação principal'})).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole('button',{name:'Abrir menu'}));
   });
   it('sends configurable truncation recovery and reasoning settings',async () => {
     const user=userEvent.setup();render(<Gerador80s/>);await setupModel(user);
