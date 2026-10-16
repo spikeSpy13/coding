@@ -31,6 +31,16 @@ Para desenvolver a interface com atualização automática, mantenha o backend n
 5. Escolha valores fixos, aleatórios ou, no lote, **variar**. Ajuste tema, ousadia, semente, anti-repetição e quantidade de itens. Em **Ajustes de geração**, também é possível mudar máximo de tokens, limiar de similaridade e concorrência.
 6. Gere, copie, regenere com os mesmos parâmetros e modelo, ou aprove/reprove resultados. O histórico permanece no SQLite e pode ser filtrado por lote e exportado em CSV/JSONL.
 
+### Leitura em voz alta pelo OpenRouter
+
+Cada parágrafo exibido tem um botão **▶ Ouvir** e uma **seta ▾** logo abaixo do texto. Na seta, informe o identificador `provedor/modelo` de um modelo **TTS (síntese de voz)** disponível no OpenRouter, a voz opcional e a velocidade. Clique em **Salvar configurações de leitura**: os ajustes são compartilhados entre os parágrafos e restaurados no mesmo navegador ao reabrir a página. A leitura usa a mesma chave OpenRouter configurada no topo. O modelo de voz é independente do modelo que escreve os parágrafos.
+
+Ao apertar **Ouvir**, o backend envia o texto exato do parágrafo à rota oficial `POST /api/v1/audio/speech` e solicita MP3. O modelo escolhido precisa suportar essa rota e esse formato; modelos apenas de texto ou de chat com áudio podem não ser compatíveis. Os identificadores de voz dependem do provedor. Com voz vazia e velocidade 1×, os campos opcionais são omitidos para usar os padrões do modelo. A referência do contrato é o [OpenAPI oficial do OpenRouter](https://openrouter.ai/openapi.json).
+
+O botão permite pausar e continuar. Ao ouvir outro parágrafo, a leitura anterior é pausada. O áudio fica temporariamente na memória da página; repeti-lo sem trocar o texto ou a configuração reutiliza o áudio. Trocar texto, chave, modelo, voz ou velocidade, sair do resultado ou recarregar a página descarta essa cópia. Para ouvir um texto antigo, abra-o pelo histórico. Áudios não são gravados no SQLite nem exportados.
+
+Gerar uma nova leitura consome créditos do OpenRouter. Não há repetição automática de chamadas de áudio. Cancelar interrompe a espera na página, mas uma síntese já recebida pelo provedor ainda pode ser cobrada. Falhas de chave, saldo, rede ou configuração aparecem junto ao botão; o parágrafo gerado permanece disponível. Sem chave e modelo reais, os testes validam a integração com respostas simuladas.
+
 ### Respostas cortadas e modelos com raciocínio
 
 O orçamento inicial padrão é **4096 tokens**. Alguns modelos gastam parte desse orçamento em raciocínio, deixando menos espaço para o parágrafo. Em **Ajustes de geração**, é possível configurar:
@@ -66,6 +76,7 @@ Use o mesmo navegador, perfil e endereço ao voltar. O armazenamento é separado
 | `GET /parametros` | Eixos, rótulos, padrões e capacidade do modelo padrão |
 | `POST /configuracao` | Capacidade do modelo selecionado; não persiste a chave ou configurações globais |
 | `POST /gerar` | Geração individual |
+| `POST /audio/ler` | Síntese de voz; recebe `texto`, `modelo`, `voz?`, `velocidade?`, `api_key?` e retorna MP3 sem cache |
 | `POST /gerar/lote` | Lote; `202` com ID quando assíncrono ou maior que 10 |
 | `GET /lotes/{id}` | Estado, progresso, itens e métricas |
 | `GET /historico?limite=50&offset=0&lote_id=…` | Histórico paginado |

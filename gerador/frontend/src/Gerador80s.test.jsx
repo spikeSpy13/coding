@@ -17,6 +17,8 @@ let requests, generated;
 
 beforeEach(() => {
   localStorage.clear(); sessionStorage.clear(); requests=[]; generated=[];
+  vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+  vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
   vi.stubGlobal('fetch',vi.fn(async (path, options={}) => {
     requests.push({path,options});
     let data;
@@ -43,6 +45,16 @@ async function setupModel(user) {
 }
 
 describe('Interface real', () => {
+  it('restores shared speech settings beneath a paragraph from history', async () => {
+    localStorage.setItem('gerador-leitura', JSON.stringify({modelo:'provider/tts',voz:'voz-pt',velocidade:1.2}));
+    generated = [item];
+    render(<Gerador80s />);
+    fireEvent.click(await screen.findByRole('button', {name:/O jardim floresce/}));
+    fireEvent.click(screen.getByRole('button', {name:'Configurar leitura'}));
+    expect(screen.getByLabelText('Modelo de voz OpenRouter').value).toBe('provider/tts');
+    expect(screen.getByLabelText('Voz (opcional)').value).toBe('voz-pt');
+    expect(screen.getByRole('button', {name:'▶ Ouvir'})).toBeTruthy();
+  });
   it('sends configurable truncation recovery and reasoning settings',async () => {
     const user=userEvent.setup();render(<Gerador80s/>);await setupModel(user);
     await user.click(screen.getByText('Ajustes de geração'));

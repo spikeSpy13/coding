@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .config import ROOT, Settings, load_parameters, temperature_capability
@@ -13,11 +13,13 @@ from .exporter import export_rows
 from .models import ApprovalRequest, BatchRequest, GenerateRequest, ModelConfiguration
 from .service import Generator
 from .storage import Storage
+from .speech import OpenRouterSpeechClient, SpeechError, SpeechRequest
 
 
-def create_app(settings=None, client_factory=None):
+def create_app(settings=None, client_factory=None, speech_client=None):
     settings = settings or Settings.from_env()
     config = load_parameters()
+    speech = speech_client or OpenRouterSpeechClient()
 
     @asynccontextmanager
     async def lifespan(app):
@@ -90,6 +92,20 @@ def create_app(settings=None, client_factory=None):
     async def generate(body: GenerateRequest):
         samples, client = prepare(body)
         return await app.state.generator.single(body, samples, client)
+
+    @app.post('/audio/ler')
+    async def read_paragraph(body: SpeechRequest):
+        key = body.api_key.get_secret_value().strip() if body.api_key else settings.api_key
+        if not key:
+            raise HTTPException(422, 'Informe sua chave OpenRouter no topo da página para ouvir o parágrafo.')
+        if len(key) > 1000 or not key.isascii() or any(c.isspace() or ord(c) < 32 for c in key):
+            raise HTTPException(422, 'A chave OpenRouter contém caracteres inválidos.')
+        try:
+            audio = await speech.synthesize(body, key)
+        except SpeechError as error:
+            raise HTTPException(error.status, str(error)) from None
+        return Response(audio.content, media_type=audio.media_type,
+                        headers={'Content-Disposition': 'inline; filename="paragrafo.mp3"'})
 
     @app.post('/gerar/lote')
     async def batch(body: BatchRequest):

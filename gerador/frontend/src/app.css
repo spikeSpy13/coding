@@ -27,3 +27,11 @@ body { margin: 0; }
 .g80-fita li { min-width:0; }
 .g80-history-tools .g80-mini { flex:none; }
 @media(max-width:650px) { .g80-conexao { grid-template-columns:1fr; } .g80-mini-acoes { flex-wrap:wrap; } }
+
+.g80-audio { margin: 1rem 0; }
+.g80-audio .g80-mini-acoes { justify-content: flex-start; }
+.g80-audio-config { margin-top: .75rem; padding: 1rem; border: 1px solid var(--cyan, #58efff); border-radius: 8px; }
+.g80-audio-config > p { margin-top: 0; }
+.g80-audio-config > small { display: block; margin: .75rem 0; line-height: 1.5; }
+.g80-audio-config .g80-campos { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+.g80-audio-config input { max-width: 100%; box-sizing: border-box; }

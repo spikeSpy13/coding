@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { call, storedModels, saveModels, storedApiKey, saveApiKey, forgetApiKey, storedSelectedModel, saveSelectedModel } from './api.js';
+import ParagraphAudio, { storedSpeechSettings } from './ParagraphAudio.jsx';
 import './gerador80s.css';
 import './app.css';
 
@@ -7,7 +8,7 @@ const hora = value => new Date(value).toLocaleTimeString('pt-BR', { hour: '2-dig
 const label = (config, axis, value) => config.rotulos[axis]?.[value] || value;
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-function Item({ item, index, config, busy, onRegenerate, onApprove }) {
+function Item({ item, index, config, busy, onRegenerate, onApprove, apiKey, speechSettings, onSpeechSettings }) {
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   async function copy() {
@@ -18,6 +19,7 @@ function Item({ item, index, config, busy, onRegenerate, onApprove }) {
     <p className="g80-n">FAIXA {String(index + 1).padStart(2, '0')} · {item.status === 'ok' ? 'FORMATO VERIFICADO' : 'FALHOU'}</p>
     {item.status === 'ok' && <small>A verificação automática não substitui a revisão da escrita.</small>}
     <p className="g80-texto">{item.texto || 'Nenhum texto retornado.'}</p>
+    <ParagraphAudio text={item.texto || ''} apiKey={apiKey} serverKey={config.chave_configurada} settings={speechSettings} onSettings={onSpeechSettings} />
     {item.motivo_falha && <p className="g80-erro">{item.motivo_falha}</p>}
     <ul className="g80-chips" aria-label="Parâmetros usados">
       {Object.entries(item.parametros_finais).map(([axis, value]) => <li className="g80-chip" key={axis}><b>{config.eixos[axis]?.nome || axis}</b>{label(config, axis, value)}</li>)}
@@ -50,6 +52,7 @@ export default function Gerador80s() {
   const [model, setModel] = useState('');
   const [savedApiKey, setSavedApiKey] = useState(storedApiKey);
   const [apiKey, setApiKey] = useState(savedApiKey);
+  const [speechSettings, setSpeechSettings] = useState(storedSpeechSettings);
   const [newModel, setNewModel] = useState('');
   const [newSupports, setNewSupports] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -325,7 +328,7 @@ export default function Gerador80s() {
           <p className="g80-status" role="status"><span className={busy ? 'g80-ocupado' : ''}>{busy ? 'Gerando…' : 'Pronto'}</span><span>{progress || `${items.length} parágrafo(s)`}</span></p>
           {batchId && <p className="g80-batch-id">Lote: {batchId}</p>}
           {!items.length && <p className="g80-vazio">Escolha o modelo, ajuste os parâmetros e aperte Gerar.</p>}
-          <div className={items.length > 1 ? 'g80-lista' : ''}>{items.map((item,index) => <Item key={item.id} item={item} index={index} config={config} busy={busy} onRegenerate={value => generate('manual', value)} onApprove={approve}/>)}</div>
+          <div className={items.length > 1 ? 'g80-lista' : ''}>{items.map((item,index) => <Item key={item.id} item={item} index={index} config={config} busy={busy} onRegenerate={value => generate('manual', value)} onApprove={approve} apiKey={apiKey} speechSettings={speechSettings} onSpeechSettings={setSpeechSettings}/>)}</div>
           {stats && <><dl className="g80-metricas"><div><dt>Aberturas únicas</dt><dd><strong>{Math.round(stats.aberturas_unicas * 100)}%</strong></dd></div><div><dt>Diversidade lexical</dt><dd><strong>{Math.round(stats.diversidade_lexical * 100)}%</strong></dd></div><div><dt>Média de palavras</dt><dd><strong>{Math.round(stats.comprimento.media)}</strong></dd></div></dl><details className="g80-details"><summary>Distribuição dos parâmetros e métricas completas</summary><pre>{JSON.stringify(stats,null,2)}</pre></details></>}
         </section>
         <section className="g80-painel g80-fita" aria-label="Histórico"><h2>Fita · Histórico</h2>
